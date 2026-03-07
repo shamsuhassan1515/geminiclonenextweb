@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { NLayout, NLayoutContent,useMessage } from 'naive-ui'
 import { useRouter ,useRoute } from 'vue-router'
 import Sider from './sider/index.vue'
+import GeminiSider from './sider/GeminiSider.vue'
 import Permission from './Permission.vue'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { gptConfigStore, homeStore, useAppStore, useAuthStore, useChatStore } from '@/store'
@@ -33,12 +34,7 @@ if(rt.name =='GPTs'){
   ms.success( t('mj.modleSuccess') );
 }
 
- 
-
-router.replace({ name: 'Chat', params: { uuid: chatStore.active } })
-homeStore.setMyData({local:'Chat'});
 const { isMobile } = useBasicLayout()
-
 
 const collapsed = computed(() => appStore.siderCollapsed)
 
@@ -60,6 +56,8 @@ const getContainerClass = computed(() => {
     { 'abc': !isMobile.value && !collapsed.value },
   ]
 }) 
+
+const isGeminiRoute = computed(() => rt.name === 'Gemini')
 </script>
 
 <template>
@@ -67,7 +65,7 @@ const getContainerClass = computed(() => {
     <div class="h-full overflow-hidden" :class="getMobileClass">
       <NLayout class="z-40 transition" :class="getContainerClass" has-sider>
         <aiSider v-if="!isMobile"/>
-        <Sider />
+        <component :is="isGeminiRoute ? GeminiSider : Sider" />
         <NLayoutContent class="h-full">
           <RouterView v-slot="{ Component, route }">
             <component :is="Component" :key="route.fullPath" />

@@ -19,6 +19,11 @@ const routes: RouteRecordRaw[] = [
         name: 'Chat',
         component: () => import('@/views/chat/index.vue'),
       },
+      {
+        path: '/gemini',
+        name: 'Gemini',
+        component: () => import('@/views/gemini/index.vue'),
+      },
     ],
   },
    {

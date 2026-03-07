@@ -1,5 +1,5 @@
 import type { AxiosProgressEvent, GenericAbortSignal } from 'axios'
-import { post } from '@/utils/request'
+import { post, upload } from '@/utils/request'
 import { homeStore, useAuthStore, useSettingStore } from '@/store'
 
 
@@ -80,4 +80,11 @@ export * from "./Recognition"
 export * from "./luma"
 export * from "./ideo"
 export * from "./realtime"
+
+export function uploadImage(formData: FormData) {
+  return upload({
+    url: '/upload',
+    data: formData,
+  })
+}
 

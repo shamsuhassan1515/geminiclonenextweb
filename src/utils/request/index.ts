@@ -81,4 +81,21 @@ export function post<T = any>(
   })
 }
 
+export function upload<T = any>(
+  { url, data, method = 'POST', onDownloadProgress, signal, beforeRequest, afterRequest }: HttpOption,
+): Promise<Response<T>> {
+  return http<T>({
+    url,
+    method,
+    data,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    onDownloadProgress,
+    signal,
+    beforeRequest,
+    afterRequest,
+  })
+}
+
 export default post
