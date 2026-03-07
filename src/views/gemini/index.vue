@@ -1,100 +1,102 @@
 <script setup lang='ts'>
-import type { Ref } from "vue";
-import { computed, h, onMounted, onUnmounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { storeToRefs } from "pinia";
+import type { Ref } from 'vue'
+import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import {
-  NAutoComplete,
-  NButton,
+  NAvatar,
   NInput,
   useDialog,
   useMessage,
-  NAvatar,
-} from "naive-ui";
-import html2canvas from "html2canvas";
-import { Message } from "../chat/components";
-import { useScroll } from "../chat/hooks/useScroll";
-import { useChat } from "../chat/hooks/useChat";
-import { useUsingContext } from "../chat/hooks/useUsingContext";
-import { SvgIcon } from "@/components/common";
-import { useBasicLayout } from "@/hooks/useBasicLayout";
-import { uploadImage } from "@/api";
+} from 'naive-ui'
+import html2canvas from 'html2canvas'
+import { Message } from '../chat/components'
+import { useScroll } from '../chat/hooks/useScroll'
+import { useChat } from '../chat/hooks/useChat'
+import { useUsingContext } from '../chat/hooks/useUsingContext'
+import { SvgIcon } from '@/components/common'
+import { useBasicLayout } from '@/hooks/useBasicLayout'
+import type { gptsType } from '@/api'
+import {
+  chatSetting,
+  fetchChatAPIProcess,
+  myFetch,
+  uploadImage,
+} from '@/api'
 import {
   gptConfigStore,
   gptsUlistStore,
   homeStore,
   useChatStore,
   usePromptStore,
-} from "@/store";
-import {
-  chatSetting,
-  fetchChatAPIProcess,
-  gptsType,
-  mlog,
-  myFetch,
-} from "@/api";
-import { t } from "@/locales";
-import { useUserStore } from "@/store";
+  useUserStore,
+} from '@/store'
+import { t } from '@/locales'
 
-let controller = new AbortController();
+let controller = new AbortController()
 
-const openLongReply = import.meta.env.VITE_GLOB_OPEN_LONG_REPLY === "true";
+const openLongReply = import.meta.env.VITE_GLOB_OPEN_LONG_REPLY === 'true'
 
-const route = useRoute();
-const dialog = useDialog();
-const ms = useMessage();
-const router = useRouter();
-const chatStore = useChatStore();
+const route = useRoute()
+const dialog = useDialog()
+const ms = useMessage()
+const router = useRouter()
+const chatStore = useChatStore()
 
-const { isMobile } = useBasicLayout();
-const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex } =
-  useChat();
-const { scrollRef, scrollToBottom, scrollToBottomIfAtBottom } = useScroll();
-const { usingContext, toggleUsingContext } = useUsingContext();
+const { isMobile } = useBasicLayout()
+const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex }
+  = useChat()
+const { scrollRef, scrollToBottom, scrollToBottomIfAtBottom } = useScroll()
+const { usingContext, toggleUsingContext } = useUsingContext()
 
-const uuid = computed(() => chatStore.active);
+const uuid = computed(() => chatStore.active)
 
-const dataSources = computed(() => chatStore.getChatByUuid(uuid.value));
+const dataSources = computed(() => chatStore.getChatByUuid(uuid.value))
 const conversationList = computed(() =>
   dataSources.value.filter(
-    (item) => !item.inversion && !!item.conversationOptions
-  )
-);
+    item => !item.inversion && !!item.conversationOptions,
+  ),
+)
 
-const prompt = ref<string>("");
-const loading = ref<boolean>(false);
-const inputRef = ref<Ref | null>(null);
-const fileInputRef = ref<HTMLInputElement | null>(null);
-const showUploadMenu = ref<boolean>(false);
-const showToolsMenu = ref<boolean>(false);
-const showModelMenu = ref<boolean>(false);
-const currentModel = ref<string>('Fast');
+const prompt = ref<string>('')
+const loading = ref<boolean>(false)
+const inputRef = ref<Ref | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const showUploadMenu = ref<boolean>(false)
+const showToolsMenu = ref<boolean>(false)
+const showModelMenu = ref<boolean>(false)
+const currentModel = ref<string>('Fast')
 
-const promptStore = usePromptStore();
-const { promptList: promptTemplate } = storeToRefs<any>(promptStore);
+const promptStore = usePromptStore()
+const { promptList: promptTemplate } = storeToRefs<any>(promptStore)
 
 dataSources.value.forEach((item, index) => {
-  if (item.loading) updateChatSome(uuid.value, index, { loading: false });
-});
+  if (item.loading)
+    updateChatSome(uuid.value, index, { loading: false })
+})
 
-const userStore = useUserStore();
-const userInfo = computed(() => userStore.userInfo);
+const userStore = useUserStore()
+const userInfo = computed(() => userStore.userInfo)
 
 function handleSubmit() {
-  let message = prompt.value;
-  if (!message || message.trim() === "") return;
-  if (loading.value) return;
-  onConversation();
+  const message = prompt.value
+  if (!message || message.trim() === '')
+    return
+  if (loading.value)
+    return
+  onConversation()
 }
 
 async function onConversation() {
-  let message = prompt.value;
+  let message = prompt.value
 
-  if (loading.value) return;
+  if (loading.value)
+    return
 
-  if (!message || message.trim() === "") return;
+  if (!message || message.trim() === '')
+    return
 
-  controller = new AbortController();
+  controller = new AbortController()
 
   addChat(uuid.value, {
     dateTime: new Date().toLocaleString(),
@@ -103,51 +105,53 @@ async function onConversation() {
     error: false,
     conversationOptions: null,
     requestOptions: { prompt: message, options: null },
-  });
-  scrollToBottom();
+  })
+  scrollToBottom()
 
-  loading.value = true;
-  prompt.value = "";
+  loading.value = true
+  prompt.value = ''
 
-  let options: Chat.ConversationRequest = {};
-  const lastContext =
-    conversationList.value[conversationList.value.length - 1]
-      ?.conversationOptions;
+  let options: Chat.ConversationRequest = {}
+  const lastContext
+    = conversationList.value[conversationList.value.length - 1]
+      ?.conversationOptions
 
-  if (lastContext && usingContext.value) options = { ...lastContext };
+  if (lastContext && usingContext.value)
+    options = { ...lastContext }
 
   addChat(uuid.value, {
     dateTime: new Date().toLocaleString(),
-    text: "思考中",
+    text: '思考中',
     loading: true,
     inversion: false,
     error: false,
     conversationOptions: null,
     requestOptions: { prompt: message, options: { ...options } },
-  });
-  scrollToBottom();
+  })
+  scrollToBottom()
 
   try {
-    let lastText = "";
+    let lastText = ''
     const fetchChatAPIOnce = async () => {
       await fetchChatAPIProcess<Chat.ConversationResponse>({
         prompt: message,
         options,
         signal: controller.signal,
         onDownloadProgress: ({ event }) => {
-          const xhr = event.target;
-          const { responseText } = xhr;
+          const xhr = event.target
+          const { responseText } = xhr
           const lastIndex = responseText.lastIndexOf(
-            "\n",
-            responseText.length - 2
-          );
-          let chunk = responseText;
-          if (lastIndex !== -1) chunk = responseText.substring(lastIndex);
+            '\n',
+            responseText.length - 2,
+          )
+          let chunk = responseText
+          if (lastIndex !== -1)
+            chunk = responseText.substring(lastIndex)
           try {
-            const data = JSON.parse(chunk);
+            const data = JSON.parse(chunk)
             updateChat(uuid.value, dataSources.value.length - 1, {
               dateTime: new Date().toLocaleString(),
-              text: lastText + (data.text ?? ""),
+              text: lastText + (data.text ?? ''),
               inversion: false,
               error: false,
               loading: true,
@@ -156,51 +160,53 @@ async function onConversation() {
                 parentMessageId: data.id,
               },
               requestOptions: { prompt: message, options: { ...options } },
-            });
+            })
 
             if (
-              openLongReply &&
-              data.detail.choices[0].finish_reason === "length"
+              openLongReply
+              && data.detail.choices[0].finish_reason === 'length'
             ) {
-              options.parentMessageId = data.id;
-              lastText = data.text;
-              message = "";
-              return fetchChatAPIOnce();
+              options.parentMessageId = data.id
+              lastText = data.text
+              message = ''
+              return fetchChatAPIOnce()
             }
 
-            scrollToBottomIfAtBottom();
-          } catch (error) {
+            scrollToBottomIfAtBottom()
+          }
+          catch (error) {
             //
           }
         },
-      });
-      updateChatSome(uuid.value, dataSources.value.length - 1, { loading: false });
-    };
+      })
+      updateChatSome(uuid.value, dataSources.value.length - 1, { loading: false })
+    }
 
-    await fetchChatAPIOnce();
-  } catch (error: any) {
-    const errorMessage = error?.message ?? t("common.wrong");
+    await fetchChatAPIOnce()
+  }
+  catch (error: any) {
+    const errorMessage = error?.message ?? t('common.wrong')
 
-    if (error.message === "canceled") {
+    if (error.message === 'canceled') {
       updateChatSome(uuid.value, dataSources.value.length - 1, {
         loading: false,
-      });
-      scrollToBottomIfAtBottom();
-      return;
+      })
+      scrollToBottomIfAtBottom()
+      return
     }
 
     const currentChat = getChatByUuidAndIndex(
       uuid.value,
-      dataSources.value.length - 1
-    );
+      dataSources.value.length - 1,
+    )
 
-    if (currentChat?.text && currentChat.text !== "") {
+    if (currentChat?.text && currentChat.text !== '') {
       updateChatSome(uuid.value, dataSources.value.length - 1, {
         text: `${currentChat.text}\n[${errorMessage}]`,
         error: false,
         loading: false,
-      });
-      return;
+      })
+      return
     }
 
     updateChat(uuid.value, dataSources.value.length - 1, {
@@ -211,59 +217,63 @@ async function onConversation() {
       loading: false,
       conversationOptions: null,
       requestOptions: { prompt: message, options: { ...options } },
-    });
-    scrollToBottomIfAtBottom();
-  } finally {
-    loading.value = false;
+    })
+    scrollToBottomIfAtBottom()
+  }
+  finally {
+    loading.value = false
   }
 }
 
 async function onRegenerate(index: number) {
-  if (loading.value) return;
+  if (loading.value)
+    return
 
-  controller = new AbortController();
+  controller = new AbortController()
 
-  const { requestOptions } = dataSources.value[index];
+  const { requestOptions } = dataSources.value[index]
 
-  let message = requestOptions?.prompt ?? "";
+  let message = requestOptions?.prompt ?? ''
 
-  let options: Chat.ConversationRequest = {};
+  let options: Chat.ConversationRequest = {}
 
-  if (requestOptions.options) options = { ...requestOptions.options };
+  if (requestOptions.options)
+    options = { ...requestOptions.options }
 
-  loading.value = true;
+  loading.value = true
 
   updateChat(uuid.value, index, {
     dateTime: new Date().toLocaleString(),
-    text: "",
+    text: '',
     inversion: false,
     error: false,
     loading: true,
     conversationOptions: null,
     requestOptions: { prompt: message, options: { ...options } },
-  });
+  })
 
   try {
-    let lastText = "";
+    let lastText = ''
     const fetchChatAPIOnce = async () => {
       await fetchChatAPIProcess<Chat.ConversationResponse>({
         prompt: message,
         options,
         signal: controller.signal,
         onDownloadProgress: ({ event }) => {
-          const xhr = event.target;
-          const { responseText } = xhr;
+          const xhr = event.target
+          const { responseText } = xhr
           const lastIndex = responseText.lastIndexOf(
-            "\n",
-            responseText.length - 2
-          );
-          let chunk = responseText;
-          if (lastIndex !== -1) chunk = responseText.substring(lastIndex);
+            '\n',
+            responseText.length - 2,
+          )
+          let chunk = responseText
+          if (lastIndex !== -1)
+            chunk = responseText.substring(lastIndex)
           try {
-            const data = JSON.parse(chunk);
+            const data = JSON.parse(chunk)
             updateChat(uuid.value, index, {
               dateTime: new Date().toLocaleString(),
-              text: lastText + (data.text ?? ""),
+              text: lastText + (data.text ?? ''),
               inversion: false,
               error: false,
               loading: true,
@@ -272,34 +282,36 @@ async function onRegenerate(index: number) {
                 parentMessageId: data.id,
               },
               requestOptions: { prompt: message, options: { ...options } },
-            });
+            })
 
             if (
-              openLongReply &&
-              data.detail.choices[0].finish_reason === "length"
+              openLongReply
+              && data.detail.choices[0].finish_reason === 'length'
             ) {
-              options.parentMessageId = data.id;
-              lastText = data.text;
-              message = "";
-              return fetchChatAPIOnce();
+              options.parentMessageId = data.id
+              lastText = data.text
+              message = ''
+              return fetchChatAPIOnce()
             }
-          } catch (error) {
+          }
+          catch (error) {
             //
           }
         },
-      });
-      updateChatSome(uuid.value, index, { loading: false });
-    };
-    await fetchChatAPIOnce();
-  } catch (error: any) {
-    if (error.message === "canceled") {
+      })
+      updateChatSome(uuid.value, index, { loading: false })
+    }
+    await fetchChatAPIOnce()
+  }
+  catch (error: any) {
+    if (error.message === 'canceled') {
       updateChatSome(uuid.value, index, {
         loading: false,
-      });
-      return;
+      })
+      return
     }
 
-    const errorMessage = error?.message ?? t("common.wrong");
+    const errorMessage = error?.message ?? t('common.wrong')
 
     updateChat(uuid.value, index, {
       dateTime: new Date().toLocaleString(),
@@ -309,291 +321,309 @@ async function onRegenerate(index: number) {
       loading: false,
       conversationOptions: null,
       requestOptions: { prompt: message, options: { ...options } },
-    });
-  } finally {
-    loading.value = false;
+    })
+  }
+  finally {
+    loading.value = false
   }
 }
 
 function handleExport() {
-  if (loading.value) return;
+  if (loading.value)
+    return
 
   const d = dialog.warning({
-    title: t("chat.exportImage"),
-    content: t("chat.exportImageConfirm"),
-    positiveText: t("common.yes"),
-    negativeText: t("common.no"),
+    title: t('chat.exportImage'),
+    content: t('chat.exportImageConfirm'),
+    positiveText: t('common.yes'),
+    negativeText: t('common.no'),
     onPositiveClick: async () => {
       try {
-        d.loading = true;
-        const ele = document.getElementById("image-wrapper");
+        d.loading = true
+        const ele = document.getElementById('image-wrapper')
         const canvas = await html2canvas(ele as HTMLDivElement, {
           useCORS: true,
-        });
-        const imgUrl = canvas.toDataURL("image/png");
-        const tempLink = document.createElement("a");
-        tempLink.style.display = "none";
-        tempLink.href = imgUrl;
-        tempLink.setAttribute("download", "chat-shot.png");
-        if (typeof tempLink.download === "undefined")
-          tempLink.setAttribute("target", "_blank");
+        })
+        const imgUrl = canvas.toDataURL('image/png')
+        const tempLink = document.createElement('a')
+        tempLink.style.display = 'none'
+        tempLink.href = imgUrl
+        tempLink.setAttribute('download', 'chat-shot.png')
+        if (typeof tempLink.download === 'undefined')
+          tempLink.setAttribute('target', '_blank')
 
-        document.body.appendChild(tempLink);
-        tempLink.click();
-        document.body.removeChild(tempLink);
-        window.URL.revokeObjectURL(imgUrl);
-        d.loading = false;
-        ms.success(t("chat.exportSuccess"));
-        Promise.resolve();
-      } catch (error: any) {
-        ms.error(t("chat.exportFailed"));
-      } finally {
-        d.loading = false;
+        document.body.appendChild(tempLink)
+        tempLink.click()
+        document.body.removeChild(tempLink)
+        window.URL.revokeObjectURL(imgUrl)
+        d.loading = false
+        ms.success(t('chat.exportSuccess'))
+        Promise.resolve()
+      }
+      catch (error: any) {
+        ms.error(t('chat.exportFailed'))
+      }
+      finally {
+        d.loading = false
       }
     },
-  });
+  })
 }
 
 function handleDelete(index: number) {
-  if (loading.value) return;
+  if (loading.value)
+    return
 
   dialog.warning({
-    title: t("chat.deleteMessage"),
-    content: t("chat.deleteMessageConfirm"),
-    positiveText: t("common.yes"),
-    negativeText: t("common.no"),
+    title: t('chat.deleteMessage'),
+    content: t('chat.deleteMessageConfirm'),
+    positiveText: t('common.yes'),
+    negativeText: t('common.no'),
     onPositiveClick: () => {
-      chatStore.deleteChatByUuid(uuid.value, index);
+      chatStore.deleteChatByUuid(uuid.value, index)
     },
-  });
+  })
 }
 
 function handleEdit(index: number) {
-  if (loading.value) return;
+  if (loading.value)
+    return
 
-  const editedMessage = ref(dataSources.value[index].text.slice());
+  const editedMessage = ref(dataSources.value[index].text.slice())
 
   const inputNode = () => {
     return h(NInput, {
-      value: editedMessage.value,
-      type: "textarea",
-      autosize: { minRows: 1, maxRows: 8 },
-      showCount: true,
-      "onUpdate:value": (v: string) => {
-        editedMessage.value = v;
+      'value': editedMessage.value,
+      'type': 'textarea',
+      'autosize': { minRows: 1, maxRows: 8 },
+      'showCount': true,
+      'onUpdate:value': (v: string) => {
+        editedMessage.value = v
       },
-    });
-  };
+    })
+  }
 
   dialog.warning({
-    title: t("common.edit"),
+    title: t('common.edit'),
     content: inputNode,
-    positiveText: t("common.yes"),
-    negativeText: t("common.no"),
+    positiveText: t('common.yes'),
+    negativeText: t('common.no'),
     onPositiveClick: () => {
-      updateChatSome(uuid.value, index, { text: editedMessage.value });
+      updateChatSome(uuid.value, index, { text: editedMessage.value })
     },
-  });
+  })
 }
 
 function handleClear() {
-  if (loading.value) return;
+  if (loading.value)
+    return
 
   dialog.warning({
-    title: t("chat.clearChat"),
-    content: t("chat.clearChatConfirm"),
-    positiveText: t("common.yes"),
-    negativeText: t("common.no"),
+    title: t('chat.clearChat'),
+    content: t('chat.clearChatConfirm'),
+    positiveText: t('common.yes'),
+    negativeText: t('common.no'),
     onPositiveClick: () => {
-      chatStore.clearChatByUuid(uuid.value);
+      chatStore.clearChatByUuid(uuid.value)
     },
-  });
+  })
 }
 
 function handleEnter(event: KeyboardEvent) {
   if (!isMobile.value) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      handleSubmit();
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      handleSubmit()
     }
-  } else {
-    if (event.key === "Enter" && event.ctrlKey) {
-      event.preventDefault();
-      handleSubmit();
+  }
+  else {
+    if (event.key === 'Enter' && event.ctrlKey) {
+      event.preventDefault()
+      handleSubmit()
     }
   }
 }
 
 function handleStop() {
   if (loading.value) {
-    homeStore.setMyData({ act: "abort" });
-    controller.abort();
-    loading.value = false;
+    homeStore.setMyData({ act: 'abort' })
+    controller.abort()
+    loading.value = false
   }
 }
 
 const searchOptions = computed(() => {
-  if (prompt.value.startsWith("/")) {
+  if (prompt.value.startsWith('/')) {
     const abc = promptTemplate.value
       .filter((item: { key: string }) =>
-        item.key.toLowerCase().includes(prompt.value.substring(1).toLowerCase())
+        item.key.toLowerCase().includes(prompt.value.substring(1).toLowerCase()),
       )
       .map((obj: { value: any }) => {
         return {
           label: obj.value,
           value: obj.value,
-        };
-      });
-    return abc;
-  } else if (prompt.value == "@") {
+        }
+      })
+    return abc
+  }
+  else if (prompt.value == '@') {
     const abc = gptsUlistStore.myData.slice(0, 10).map((v: gptsType) => {
       return {
         label: v.info,
         gpts: v,
         value: v.gid,
-      };
-    });
-    return abc;
-  } else {
-    return [];
+      }
+    })
+    return abc
   }
-});
+  else {
+    return []
+  }
+})
 
 const renderOption = (option: { label: string; gpts?: gptsType }) => {
-  if (prompt.value == "@") {
+  if (prompt.value == '@') {
     return [
       h(
-        "div",
+        'div',
         {
-          class: "flex justify-start items-center",
+          class: 'flex justify-start items-center',
           onclick: () => {
-            if (option.gpts) goUseGpts(option.gpts);
-            prompt.value = "";
-            setTimeout(() => (prompt.value = ""), 80);
+            if (option.gpts)
+              goUseGpts(option.gpts)
+            prompt.value = ''
+            setTimeout(() => (prompt.value = ''), 80)
           },
         },
         [
           h(NAvatar, {
-            src: option.gpts?.logo,
-            "fallback-src": "https://cos.aitutu.cc/gpts/3.5net.png",
-            size: "small",
-            round: true,
-            class: "w-8 h-8",
+            'src': option.gpts?.logo,
+            'fallback-src': 'https://cos.aitutu.cc/gpts/3.5net.png',
+            'size': 'small',
+            'round': true,
+            'class': 'w-8 h-8',
           }),
-          h("span", { class: "pl-1" }, option.gpts?.name),
+          h('span', { class: 'pl-1' }, option.gpts?.name),
           h(
-            "span",
-            { class: "line-clamp-1 flex-1 pl-1 opacity-50" },
-            option.label
+            'span',
+            { class: 'line-clamp-1 flex-1 pl-1 opacity-50' },
+            option.label,
           ),
-        ]
+        ],
       ),
-    ];
+    ]
   }
   for (const i of promptTemplate.value) {
-    if (i.value === option.label) return [i.key];
+    if (i.value === option.label)
+      return [i.key]
   }
-  return [];
-};
+
+  return []
+}
 
 const goUseGpts = async (item: gptsType) => {
-  const saveObj = { model: `${item.gid}`, gpts: item };
-  gptConfigStore.setMyData(saveObj);
+  const saveObj = { model: `${item.gid}`, gpts: item }
+  gptConfigStore.setMyData(saveObj)
   if (chatStore.active) {
-    const chatSet = new chatSetting(chatStore.active);
-    chatSet.save(saveObj);
+    const chatSet = new chatSetting(chatStore.active)
+    chatSet.save(saveObj)
   }
-  ms.success(t("mjchat.success2"));
-  const gptUrl = `https://gpts.ddaiai.com/open/gptsapi/use`;
-  myFetch(gptUrl, item);
+  ms.success(t('mjchat.success2'))
+  const gptUrl = 'https://gpts.ddaiai.com/open/gptsapi/use'
+  myFetch(gptUrl, item)
 
-  if (homeStore.myData.local !== "Chat")
-    router.replace({ name: "Chat", params: { uuid: chatStore.active } });
+  if (homeStore.myData.local !== 'Chat')
+    router.replace({ name: 'Chat', params: { uuid: chatStore.active } })
 
-  gptsUlistStore.setMyData(item);
-};
+  gptsUlistStore.setMyData(item)
+}
 
 const placeholder = computed(() => {
-  return "Ask Gemini 3";
-});
+  return 'Ask Gemini 3'
+})
 
 const buttonDisabled = computed(() => {
-  return loading.value || !prompt.value || prompt.value.trim() === "";
-});
+  return loading.value || !prompt.value || prompt.value.trim() === ''
+})
 
 const footerClass = computed(() => {
-  return ["gemini-footer"];
-});
+  return ['gemini-footer']
+})
 
 onMounted(() => {
-  scrollToBottom();
-  if (inputRef.value && !isMobile.value) inputRef.value?.focus();
-  document.addEventListener('click', handleClickOutside);
-});
+  scrollToBottom()
+  if (inputRef.value && !isMobile.value)
+    inputRef.value?.focus()
+  document.addEventListener('click', handleClickOutside)
+})
 
 onUnmounted(() => {
-  if (loading.value) controller.abort();
-  homeStore.setMyData({ isLoader: false });
-  document.removeEventListener('click', handleClickOutside);
-});
+  if (loading.value)
+    controller.abort()
+  homeStore.setMyData({ isLoader: false })
+  document.removeEventListener('click', handleClickOutside)
+})
 
-const local = computed(() => homeStore.myData.local);
+const local = computed(() => homeStore.myData.local)
 
 watch(
   () => homeStore.myData.act,
   (n) => {
-    if (n == "draw") scrollToBottom();
-    if (n == "scrollToBottom") scrollToBottom();
-    if (n == "scrollToBottomIfAtBottom") scrollToBottomIfAtBottom();
-    if (n == "gpt.submit" || n == "gpt.resubmit") {
-      loading.value = true;
+    if (n == 'draw')
+      scrollToBottom()
+    if (n == 'scrollToBottom')
+      scrollToBottom()
+    if (n == 'scrollToBottomIfAtBottom')
+      scrollToBottomIfAtBottom()
+    if (n == 'gpt.submit' || n == 'gpt.resubmit') {
+      loading.value = true
       if (chatStore.active) {
-        const chatSet = new chatSetting(chatStore.active);
+        const chatSet = new chatSetting(chatStore.active)
         if (chatSet.findIndex() == -1) {
-          chatSet.save(chatSet.getGptConfig());
-          setTimeout(() => homeStore.setMyData({ act: "saveChat" }), 600);
+          chatSet.save(chatSet.getGptConfig())
+          setTimeout(() => homeStore.setMyData({ act: 'saveChat' }), 600)
         }
       }
     }
-    if (n == "stopLoading") {
-      loading.value = false;
-    }
-  }
-);
+    if (n == 'stopLoading')
+      loading.value = false
+  },
+)
 
 watch(
   () => loading.value,
-  (n) => homeStore.setMyData({ isLoader: n })
-);
+  n => homeStore.setMyData({ isLoader: n }),
+)
 
 const ychat = computed(() => {
-  let text = prompt.value;
-  if (loading.value) text = "";
-  return { text, dateTime: t("chat.preview") } as Chat.Chat;
-});
+  let text = prompt.value
+  if (loading.value)
+    text = ''
+  return { text, dateTime: t('chat.preview') } as Chat.Chat
+})
 
 const quickActions = [
-  { label: "For you", icon: "" },
-  { label: "Create image", icon: "🖼️" },
-  { label: "Create music", icon: "🎸" },
-  { label: "Help me learn", icon: "" },
-  { label: "Write anything", icon: "" },
-  { label: "Boost my day", icon: "" },
-];
+  { label: 'For you', icon: '' },
+  { label: 'Create image', icon: '🖼️' },
+  { label: 'Create music', icon: '🎸' },
+  { label: 'Help me learn', icon: '' },
+  { label: 'Write anything', icon: '' },
+  { label: 'Boost my day', icon: '' },
+]
 
 function handleQuickAction(label: string) {
-  prompt.value = label;
-  handleSubmit();
+  prompt.value = label
+  handleSubmit()
 }
 
 function handleUploadClick() {
-  showUploadMenu.value = !showUploadMenu.value;
-  showToolsMenu.value = false;
+  showUploadMenu.value = !showUploadMenu.value
+  showToolsMenu.value = false
 }
 
 function handleToolsClick() {
-  showToolsMenu.value = !showToolsMenu.value;
-  showUploadMenu.value = false;
+  showToolsMenu.value = !showToolsMenu.value
+  showUploadMenu.value = false
 }
 
 // 模型列表
@@ -601,70 +631,72 @@ const modelList = [
   {
     id: 'Fast',
     name: 'Fast',
-    description: 'Answers quickly'
+    description: 'Answers quickly',
   },
   {
     id: 'Thinking',
     name: 'Thinking',
-    description: 'Solves complex problems'
+    description: 'Solves complex problems',
   },
   {
     id: 'Pro',
     name: 'Pro',
-    description: 'Advanced math and code with 3.1 Pro'
-  }
-];
+    description: 'Advanced math and code with 3.1 Pro',
+  },
+]
 
 function handleModelClick() {
-  showModelMenu.value = !showModelMenu.value;
-  showUploadMenu.value = false;
-  showToolsMenu.value = false;
+  showModelMenu.value = !showModelMenu.value
+  showUploadMenu.value = false
+  showToolsMenu.value = false
 }
 
 function selectModel(modelId: string) {
-  currentModel.value = modelId;
-  showModelMenu.value = false;
+  currentModel.value = modelId
+  showModelMenu.value = false
 }
 
 // 点击外部关闭菜单
 function handleClickOutside(event: MouseEvent) {
-  const target = event.target as HTMLElement;
-  if (!target.closest('.upload-menu-container') && !target.closest('.tools-menu-container') && !target.closest('.model-menu-container')) {
-    closeAllMenus();
-  }
+  const target = event.target as HTMLElement
+  if (!target.closest('.upload-menu-container') && !target.closest('.tools-menu-container') && !target.closest('.model-menu-container'))
+    closeAllMenus()
 }
 
 function closeAllMenus() {
-  showUploadMenu.value = false;
-  showToolsMenu.value = false;
-  showModelMenu.value = false;
+  showUploadMenu.value = false
+  showToolsMenu.value = false
+  showModelMenu.value = false
 }
 
 function openFileSelector() {
-  fileInputRef.value?.click();
-  showUploadMenu.value = false;
+  fileInputRef.value?.click()
+  showUploadMenu.value = false
 }
 
 async function handleFileUpload(event: Event) {
-  const target = event.target as HTMLInputElement;
-  const files = target.files;
-  if (!files || files.length === 0) return;
+  const target = event.target as HTMLInputElement
+  const files = target.files
+  if (!files || files.length === 0)
+    return
 
-  loading.value = true;
+  loading.value = true
   try {
-    const formData = new FormData();
-    formData.append('image', files[0]);
-    
-    const response = await uploadImage(formData);
+    const formData = new FormData()
+    formData.append('image', files[0])
+
+    const response = await uploadImage(formData)
     if (response.url) {
-      prompt.value = `![Image](${response.url})`;
-      inputRef.value?.focus();
+      prompt.value = `![Image](${response.url})`
+      inputRef.value?.focus()
     }
-  } catch (error) {
-    ms.error(t('common.wrong'));
-  } finally {
-    loading.value = false;
-    target.value = '';
+  }
+  catch (error) {
+    ms.error(t('common.wrong'))
+  }
+  finally {
+    loading.value = false
+    target.value = ''
   }
 }
 </script>
@@ -677,9 +709,8 @@ async function handleFileUpload(event: Event) {
         <span class="gemini-logo">Gemini</span>
       </div>
       <div class="header-right">
-        <span class="pro-badge">PRO</span>
         <div class="user-avatar">
-          <img :src="userInfo.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + userInfo.name" alt="User" />
+          <img :src="userInfo.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userInfo.name}`" alt="User">
         </div>
       </div>
     </header>
@@ -692,24 +723,28 @@ async function handleFileUpload(event: Event) {
           <div class="welcome-header">
             <div class="gemini-icon">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#gemini-gradient)"/>
+                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#gemini-gradient)" />
                 <defs>
                   <linearGradient id="gemini-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#4285F4"/>
-                    <stop offset="0.5" stop-color="#9B72CB"/>
-                    <stop offset="1" stop-color="#D96570"/>
+                    <stop stop-color="#4285F4" />
+                    <stop offset="0.5" stop-color="#9B72CB" />
+                    <stop offset="1" stop-color="#D96570" />
                   </linearGradient>
                 </defs>
               </svg>
             </div>
-            <h1 class="welcome-title">Hi {{ userInfo.name || 'shamsu' }}</h1>
+            <h1 class="welcome-title">
+              Hi {{ userInfo.name || 'shamsu' }}
+            </h1>
           </div>
-          <h2 class="welcome-subtitle">What should we try today?</h2>
+          <h2 class="welcome-subtitle">
+            What should we try today?
+          </h2>
         </div>
       </div>
 
       <!-- Chat Messages -->
-      <div v-else class="chat-messages" ref="scrollRef">
+      <div v-else ref="scrollRef" class="chat-messages">
         <div class="messages-container">
           <Message
             v-for="(item, index) of dataSources"
@@ -719,20 +754,21 @@ async function handleFileUpload(event: Event) {
             :inversion="item.inversion"
             :error="item.error"
             :loading="item.loading"
+            :chat="item"
+            :index="index"
+            class="gemini-message"
             @regenerate="onRegenerate(index)"
             @delete="handleDelete(index)"
             @edit="handleEdit(index)"
-            :chat="item"
-            :index="index"
           />
           <Message
             v-if="ychat.text"
             :key="dataSources.length"
             :inversion="true"
-            :date-time="$t('mj.typing')"
             :chat="ychat"
             :text="ychat.text"
             :index="dataSources.length"
+            class="gemini-message"
           />
           <div v-if="loading" class="stop-button-container">
             <button class="stop-button" @click="handleStop">
@@ -752,9 +788,9 @@ async function handleFileUpload(event: Event) {
               v-model="prompt"
               type="text"
               :placeholder="placeholder"
-              @keypress="handleEnter"
               class="gemini-input"
-            />
+              @keypress="handleEnter"
+            >
           </div>
           <div class="input-actions">
             <div class="upload-menu-container">
@@ -817,13 +853,13 @@ async function handleFileUpload(event: Event) {
                     <span>Personal Intelligence</span>
                     <label class="switch">
                       <input type="checkbox" checked>
-                      <span class="slider round"></span>
+                      <span class="slider round" />
                     </label>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="spacer"></div>
+            <div class="spacer" />
             <div class="model-menu-container">
               <button class="action-btn model-selector" @click="handleModelClick">
                 <span>{{ currentModel }}</span>
@@ -834,8 +870,8 @@ async function handleFileUpload(event: Event) {
                   <h3>Gemini 3</h3>
                 </div>
                 <div class="model-menu-items">
-                  <button 
-                    v-for="model in modelList" 
+                  <button
+                    v-for="model in modelList"
                     :key="model.id"
                     class="model-menu-item"
                     :class="{ active: currentModel === model.id }"
@@ -862,9 +898,9 @@ async function handleFileUpload(event: Event) {
             ref="fileInputRef"
             type="file"
             accept="image/*"
-            @change="handleFileUpload"
             class="file-input"
-          />
+            @change="handleFileUpload"
+          >
         </div>
 
         <!-- Quick Actions -->
@@ -879,6 +915,10 @@ async function handleFileUpload(event: Event) {
             <span>{{ action.label }}</span>
           </button>
         </div>
+
+        <div class="gemini-disclaimer">
+          Gemini is AI and can make mistakes.
+        </div>
       </div>
     </main>
   </div>
@@ -889,7 +929,7 @@ async function handleFileUpload(event: Event) {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f0f4f8;
+  background: #ffffff;
   font-family: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -918,14 +958,6 @@ async function handleFileUpload(event: Event) {
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-.pro-badge {
-  font-size: 12px;
-  font-weight: 500;
-  color: #5f6368;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .user-avatar {
@@ -1038,17 +1070,22 @@ async function handleFileUpload(event: Event) {
 
 /* Input Area */
 .input-area {
-  padding: 0 20px 40px;
-  background: linear-gradient(to bottom, transparent, #f0f4f8 20%);
+  padding: 0 20px 20px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .input-container {
-  max-width: 720px;
+  width: 100%;
+  max-width: 820px;
   margin: 0 auto;
-  background: #fff;
+  background: #f0f4f9;
   border-radius: 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.08);
   padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 .input-box {
@@ -1103,6 +1140,75 @@ async function handleFileUpload(event: Event) {
   border-radius: 12px;
   padding: 6px 12px;
   color: #1f1f1f;
+}
+
+.gemini-disclaimer {
+  font-size: 12px;
+  color: #5f6368;
+  text-align: center;
+  margin-top: 16px;
+}
+
+/* Chat Messages Specific Gemini Overrides */
+.gemini-container :deep(.gemini-message) {
+  margin-bottom: 32px !important;
+}
+
+/* Hide user avatar container and left-margin on inversion */
+.gemini-container :deep(.gemini-message.flex-row-reverse .basis-8) {
+  display: none !important;
+}
+
+/* User Message Bubble */
+.gemini-container :deep(.gemini-message .message-request) {
+  background-color: #f0f4f9 !important;
+  color: #202124 !important;
+  border-radius: 24px !important;
+  padding: 12px 24px !important;
+  max-width: 80% !important;
+  box-shadow: none !important;
+}
+
+/* Bot Message Bubble */
+.gemini-container :deep(.gemini-message .message-reply) {
+  background-color: transparent !important;
+  color: #202124 !important;
+  padding: 4px 0 !important;
+  box-shadow: none !important;
+}
+
+/* Bot Sparkle Avatar */
+.gemini-container :deep(.gemini-message:not(.flex-row-reverse) > .basis-8) {
+  background: transparent !important;
+  position: relative;
+}
+
+.gemini-container :deep(.gemini-message:not(.flex-row-reverse) > .basis-8 > *) {
+  visibility: hidden;
+}
+
+/* Inject the sparkle icon using pseudo-element */
+.gemini-container :deep(.gemini-message:not(.flex-row-reverse) > .basis-8::after) {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="%238AB4F8"/></svg>');
+  background-size: 20px 20px;
+  background-repeat: no-repeat;
+  background-position: center;
+  visibility: visible;
+}
+
+/* Fix raw text color for bot messages */
+.gemini-container :deep(.markdown-body) {
+  --color-fg-default: #202124 !important;
+  background-color: transparent !important;
+}
+.gemini-container :deep(.message-reply .whitespace-pre-wrap) {
+  color: #202124;
 }
 
 .model-selector:hover {
