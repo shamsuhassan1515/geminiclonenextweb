@@ -83,7 +83,7 @@ const routes: RouteRecordRaw[] = [
 
     {
     path: '/music',
-    name: 'music',
+    name: 'MusicRoot',
     component: sunoLayout,
     redirect: '/music/index',
     children: [
@@ -93,13 +93,10 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/suno/music.vue'),
       },
     ],
-
-    
-
   },
   {
     path: '/video',
-    name: 'video',
+    name: 'VideoRoot',
     component: lumaLayout,
     redirect: '/video/index',
     children: [
@@ -113,7 +110,7 @@ const routes: RouteRecordRaw[] = [
 
   {
     path: '/dance',
-    name: 'dance',
+    name: 'DanceRoot',
     component: lumaLayout,
     redirect: '/dance/index',
     children: [
@@ -127,7 +124,7 @@ const routes: RouteRecordRaw[] = [
 
   {
     path: '/wav',
-    name: 'wav',
+    name: 'WavRoot',
     component: lumaLayout,
     redirect: '/wav/index',
     children: [
