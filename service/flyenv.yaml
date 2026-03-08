@@ -4,7 +4,7 @@ flyenv:
   version: '2.15.6'
   type: nodejs
   port: 3002
-  workingDirectory: /Users/a1-6/开发/chatgpt-web-midjourney-proxy/service
+  workingDirectory: /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service
   startCommand: npm run dev
   stopCommand: pkill -f esno
   restartCommand: 'pkill -f esno && npm run dev'
@@ -15,7 +15,7 @@ flyenv:
   autoStart: true
   restartOnCrash: true
   log:
-    file: /Users/a1-6/开发/chatgpt-web-midjourney-proxy/service/logs/flyenv.log
+    file: /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/logs/flyenv.log
     maxSize: 10m
     maxFiles: 5
   features:

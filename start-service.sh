@@ -3,7 +3,7 @@
 # 启动后端服务脚本
 # 用于启动 ChatGPT Web Service
 
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy/service
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service
 
 echo "正在启动后端服务..."
 

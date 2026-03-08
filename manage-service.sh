@@ -5,7 +5,7 @@
 
 PLIST_FILE="com.geminiclonenextweb.server.plist"
 SERVICE_NAME="com.geminiclonenextweb.server"
-PROJECT_DIR="/Users/a1-6/开发/chatgpt-web-midjourney-proxy"
+PROJECT_DIR="/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy"
 LOG_DIR="$PROJECT_DIR/logs"
 
 # 颜色定义

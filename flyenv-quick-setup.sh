@@ -8,7 +8,7 @@ echo "  FlyEnv 快速配置向导"
 echo "========================================="
 echo ""
 
-PROJECT_DIR="/Users/a1-6/开发/chatgpt-web-midjourney-proxy"
+PROJECT_DIR="/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy"
 FLYENV_CONFIG_FILES=(
     "flyenv-project.json"
     "flyenv.yaml"

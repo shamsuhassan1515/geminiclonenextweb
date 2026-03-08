@@ -3,7 +3,7 @@
 # FlyEnv 启动脚本
 # 用于在 FlyEnv 中启动 Gemini Clone 项目
 
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy
 
 # 检查 Node.js 是否安装
 if ! command -v node &> /dev/null; then

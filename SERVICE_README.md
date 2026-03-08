@@ -21,7 +21,7 @@
 ### 方法二：使用命令行
 
 ```bash
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy
 
 # 查看服务状态
 ./manage-service.sh status
@@ -141,7 +141,7 @@ lsof -i :1002
 
 如果依赖安装失败，手动重新安装：
 ```bash
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy
 npm install
 ```
 
@@ -174,7 +174,7 @@ pkill -f "vite"
 
 1. 导入项目到 FlyEnv
 2. 项目类型: Node.js
-3. 项目路径: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+3. 项目路径: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 4. 项目名称: `Gemini Clone`
 
 详细说明请参考 `FLYENV_README.md`

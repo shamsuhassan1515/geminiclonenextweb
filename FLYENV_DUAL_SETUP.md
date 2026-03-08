@@ -19,8 +19,8 @@
    ```
    项目名称: Gemini Clone Backend
    备注: 后端 API 服务
-   启动文件: /Users/a1-6/开发/chatgpt-web-midjourney-proxy/service/package.json
-   运行目录: /Users/a1-6/开发/chatgpt-web-midjourney-proxy/service
+   启动文件: /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/package.json
+   运行目录: /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service
    NodeJS版本: node25.7.0
    TCP端口: 3002
    scripts: dev
@@ -37,8 +37,8 @@
    ```
    项目名称: Gemini Clone
    备注: 前端 Web 应用
-   启动文件: /Users/a1-6/开发/chatgpt-web-midjourney-proxy/package.json
-   运行目录: /Users/a1-6/开发/chatgpt-web-midjourney-proxy
+   启动文件: /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/package.json
+   运行目录: /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy
    NodeJS版本: node25.7.0
    TCP端口: 1002
    scripts: dev
@@ -96,13 +96,13 @@
 ## 📁 配置文件位置
 
 ### 前端配置
-- 主目录: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+- 主目录: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 - FlyEnv 配置: `flyenv.yaml`
 - 环境变量: `.env`
 - Vite 配置: `vite.config.ts`
 
 ### 后端配置
-- 主目录: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy/service`
+- 主目录: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service`
 - FlyEnv 配置: `flyenv.yaml`
 - 环境变量: `.env` (需要创建)
 
@@ -121,7 +121,7 @@
 lsof -i :3002
 
 # 检查前端代理配置
-cat /Users/a1-6/开发/chatgpt-web-midjourney-proxy/.env
+cat /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/.env
 ```
 
 ### 问题：端口冲突
@@ -147,7 +147,7 @@ kill -9 <PID>
 ### 问题：后端依赖未安装
 
 ```bash
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy/service
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service
 pnpm install
 ```
 
@@ -155,7 +155,7 @@ pnpm install
 
 ### 后端环境变量 (service/.env)
 
-创建 `/Users/a1-6/开发/chatgpt-web-midjourney-proxy/service/.env` 文件:
+创建 `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/.env` 文件:
 
 ```env
 # OpenAI API Key
@@ -199,11 +199,11 @@ VITE_APP_API_BASE_URL=http://127.0.0.1:3002
 
 ### 查看后端日志
 - FlyEnv 界面中点击 "Gemini Clone Backend" 的日志按钮
-- 或查看文件: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy/service/logs/flyenv.log`
+- 或查看文件: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/logs/flyenv.log`
 
 ### 查看前端日志
 - FlyEnv 界面中点击 "Gemini Clone" 的日志按钮
-- 或查看文件: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log`
+- 或查看文件: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log`
 
 ## 🎯 快速检查清单
 

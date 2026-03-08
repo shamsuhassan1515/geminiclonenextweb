@@ -24,7 +24,7 @@ echo "✅ FlyEnv 已安装"
 echo ""
 
 # 检查项目目录
-PROJECT_DIR="/Users/a1-6/开发/chatgpt-web-midjourney-proxy"
+PROJECT_DIR="/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy"
 if [ ! -d "$PROJECT_DIR" ]; then
     echo "❌ 项目目录不存在: $PROJECT_DIR"
     exit 1

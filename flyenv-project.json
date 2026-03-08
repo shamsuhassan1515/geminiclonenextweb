@@ -5,7 +5,7 @@
     "version": "0.01",
     "type": "nodejs",
     "port": 1002,
-    "workingDirectory": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy",
+    "workingDirectory": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy",
     "startCommand": "npm run dev",
     "stopCommand": "pkill -f 'vite'",
     "restartCommand": "pkill -f 'vite' && npm run dev",
@@ -17,7 +17,7 @@
     "autoStart": true,
     "restartOnCrash": true,
     "log": {
-      "file": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log",
+      "file": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log",
       "maxSize": "10m",
       "maxFiles": 5
     },

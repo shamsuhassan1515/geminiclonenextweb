@@ -12,7 +12,7 @@
     "host": "0.0.0.0",
     "startCommand": "npm run dev",
     "buildCommand": "npm run build",
-    "workingDirectory": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy",
+    "workingDirectory": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy",
     "envFile": ".env"
   },
   "runtime": {

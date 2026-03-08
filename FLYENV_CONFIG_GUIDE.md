@@ -6,7 +6,7 @@
 - **版本**: 0.01
 - **类型**: Node.js
 - **端口**: 1002
-- **工作目录**: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+- **工作目录**: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 
 ## 🚀 在 FlyEnv 中添加项目
 
@@ -14,7 +14,7 @@
 
 1. 打开 FlyEnv 应用
 2. 点击 "导入项目" 或 "添加项目"
-3. 选择项目目录: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+3. 选择项目目录: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 4. FlyEnv 会自动识别配置文件并导入项目
 
 ### 方法二：手动添加
@@ -29,7 +29,7 @@
    - 描述: `Gemini Clone Web Application - AI Chat Interface`
 
    **项目路径:**
-   - 工作目录: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+   - 工作目录: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 
    **服务器配置:**
    - 端口: `1002`
@@ -176,7 +176,7 @@ FlyEnv 会自动识别这些文件。
     "version": "0.01",
     "type": "nodejs",
     "port": 1002,
-    "workingDirectory": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy",
+    "workingDirectory": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy",
     "startCommand": "npm run dev",
     "stopCommand": "pkill -f 'vite'",
     "restartCommand": "pkill -f 'vite' && npm run dev",
@@ -188,7 +188,7 @@ FlyEnv 会自动识别这些文件。
     "autoStart": true,
     "restartOnCrash": true,
     "log": {
-      "file": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log",
+      "file": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log",
       "maxSize": "10m",
       "maxFiles": 5
     },

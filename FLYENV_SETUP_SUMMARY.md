@@ -49,7 +49,7 @@
 1. **打开 FlyEnv 应用**
 2. **点击 "导入项目" 或 "添加项目"**
 3. **选择项目目录**:
-   - 路径: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+   - 路径: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 4. **FlyEnv 会自动识别配置文件**
 5. **点击 "导入" 或 "添加"**
 
@@ -65,7 +65,7 @@
    - 描述: `Gemini Clone Web Application - AI Chat Interface`
 
    **项目路径:**
-   - 工作目录: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+   - 工作目录: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 
    **服务器配置:**
    - 端口: `1002`
@@ -91,7 +91,7 @@
 - **作者**: shamsuhassan1515
 - **类型**: Node.js Web 应用
 - **端口**: 1002
-- **工作目录**: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+- **工作目录**: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 
 ---
 
@@ -202,7 +202,7 @@
 
 所有配置文件位于项目根目录:
 ```
-/Users/a1-6/开发/chatgpt-web-midjourney-proxy/
+/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/
 ├── flyenv-project.json      # 主配置文件
 ├── flyenv.yaml             # YAML 配置
 ├── .flyenv                 # 简化配置
@@ -240,7 +240,7 @@
 **立即在 FlyEnv 中导入项目:**
 1. 打开 FlyEnv 应用
 2. 点击 "导入项目"
-3. 选择: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+3. 选择: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 4. 完成！
 
 **访问地址:** http://localhost:1002/#/gemini

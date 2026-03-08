@@ -3,12 +3,12 @@
 # Gemini Clone 桌面快捷方式
 # 双击此文件可以打开服务管理界面
 
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy
 
 # 打开终端并显示管理菜单
 osascript -e 'tell application "Terminal"
     activate
-    do script "cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy && ./manage-service.sh status"
+    do script "cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy && ./manage-service.sh status"
 end tell'
 
 # 等待用户输入

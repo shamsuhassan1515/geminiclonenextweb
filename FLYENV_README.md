@@ -13,7 +13,7 @@
 1. 打开 FlyEnv 应用
 2. 点击 "导入项目" 或 "添加新项目"
 3. 选择项目类型: Node.js
-4. 项目路径: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+4. 项目路径: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 5. 项目名称: `Gemini Clone`
 
 ### 2. 配置项目
@@ -66,7 +66,7 @@ FlyEnv 会自动识别以下配置文件:
 
 ### 手动启动
 ```bash
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy
 ./start.sh
 ```
 
@@ -93,7 +93,7 @@ tail -f logs/flyenv.log
 ### 依赖安装失败
 在 FlyEnv 界面中点击 "重新安装依赖" 或手动运行:
 ```bash
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy
 npm install
 ```
 

@@ -40,7 +40,7 @@
 ### 方式二：命令行管理
 
 ```bash
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy
 
 # 查看状态
 ./manage-service.sh status
@@ -176,7 +176,7 @@ kill -9 <PID>
 
 **解决方案**:
 ```bash
-cd /Users/a1-6/开发/chatgpt-web-midjourney-proxy
+cd /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy
 npm install
 ```
 
@@ -236,7 +236,7 @@ lsof -i :1002
 1. 打开 FlyEnv 应用
 2. 导入项目
 3. 项目类型: Node.js
-4. 项目路径: `/Users/a1-6/开发/chatgpt-web-midjourney-proxy`
+4. 项目路径: `/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy`
 5. 项目名称: `Gemini Clone`
 
 详细说明请参考 `FLYENV_README.md`

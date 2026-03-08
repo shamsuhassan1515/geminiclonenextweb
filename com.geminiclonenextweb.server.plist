@@ -8,11 +8,11 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/a1-6/开发/chatgpt-web-midjourney-proxy/start.sh</string>
+        <string>/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/start.sh</string>
     </array>
     
     <key>WorkingDirectory</key>
-    <string>/Users/a1-6/开发/chatgpt-web-midjourney-proxy</string>
+    <string>/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy</string>
     
     <key>RunAtLoad</key>
     <true/>
@@ -21,10 +21,10 @@
     <true/>
     
     <key>StandardOutPath</key>
-    <string>/Users/a1-6/开发/chatgpt-web-midjourney-proxy/logs/gemini-clone.log</string>
+    <string>/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/logs/gemini-clone.log</string>
     
     <key>StandardErrorPath</key>
-    <string>/Users/a1-6/开发/chatgpt-web-midjourney-proxy/logs/gemini-clone-error.log</string>
+    <string>/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/logs/gemini-clone-error.log</string>
     
     <key>EnvironmentVariables</key>
     <dict>

@@ -12,11 +12,11 @@
     "build": "npm run build",
     "stop": "pkill -f 'vite'"
   },
-  "workingDir": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy",
+  "workingDir": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy",
   "autoStart": true,
   "restartOnCrash": true,
   "log": {
-    "file": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log",
+    "file": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log",
     "maxSize": "10m",
     "maxFiles": 5
   }

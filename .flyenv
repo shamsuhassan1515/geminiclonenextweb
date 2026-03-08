@@ -6,7 +6,7 @@
   "port": 1002,
   "author": "shamsuhassan1515",
   "repository": "https://github.com/shamsuhassan1515/geminiclonenextweb",
-  "workingDirectory": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy",
+  "workingDirectory": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy",
   "startCommand": "npm run dev",
   "buildCommand": "npm run build",
   "stopCommand": "pkill -f 'vite'",
@@ -17,7 +17,7 @@
   "autoStart": true,
   "restartOnCrash": true,
   "log": {
-    "file": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log",
+    "file": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log",
     "maxSize": "10m",
     "maxFiles": 5
   },
