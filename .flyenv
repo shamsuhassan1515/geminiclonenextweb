@@ -1,0 +1,35 @@
+{
+  "name": "Gemini Clone",
+  "description": "Gemini Clone Web Application - AI Chat Interface",
+  "version": "0.01",
+  "type": "nodejs",
+  "port": 1002,
+  "author": "shamsuhassan1515",
+  "repository": "https://github.com/shamsuhassan1515/geminiclonenextweb",
+  "workingDirectory": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy",
+  "startCommand": "npm run dev",
+  "buildCommand": "npm run build",
+  "stopCommand": "pkill -f 'vite'",
+  "env": {
+    "NODE_ENV": "development",
+    "PORT": "1002"
+  },
+  "autoStart": true,
+  "restartOnCrash": true,
+  "log": {
+    "file": "/Users/a1-6/开发/chatgpt-web-midjourney-proxy/logs/flyenv.log",
+    "maxSize": "10m",
+    "maxFiles": 5
+  },
+  "features": {
+    "hotReload": true,
+    "logRotation": true
+  },
+  "monitoring": {
+    "healthCheck": {
+      "enabled": true,
+      "path": "/",
+      "interval": 30
+    }
+  }
+}

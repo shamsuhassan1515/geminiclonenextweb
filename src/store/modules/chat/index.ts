@@ -199,10 +199,16 @@ export const useChatStore = defineStore('chat-store', {
     },
 
     async reloadRoute(uuid?: number) {
-      this.recordState();
-      mlog('toMyuid19','reloadRoute')
-      //await sleep(1000)
-      await router.push({ name: homeStore.myData.local=='draw'?'draw': 'Chat', params: { uuid } })
+      this.recordState()
+      mlog('toMyuid19', 'reloadRoute')
+      // await sleep(1000)
+      let name = 'Chat'
+      if (homeStore.myData.local === 'draw')
+        name = 'draw'
+      else if (homeStore.myData.local === 'Gemini')
+        name = 'Gemini'
+
+      await router.push({ name, params: { uuid } })
     },
 
     recordState() {

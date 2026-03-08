@@ -5,7 +5,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
   NAvatar,
+  NDropdown,
   NInput,
+  NModal,
   useDialog,
   useMessage,
 } from 'naive-ui'
@@ -32,6 +34,7 @@ import {
   useUserStore,
 } from '@/store'
 import { t } from '@/locales'
+import { copyToClip } from '@/utils/copy'
 
 let controller = new AbortController()
 
@@ -46,8 +49,20 @@ const chatStore = useChatStore()
 const { isMobile } = useBasicLayout()
 const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex }
   = useChat()
+
+const editingIndex = ref<number>(-1)
+const editingText = ref<string>('')
 const { scrollRef, scrollToBottom, scrollToBottomIfAtBottom } = useScroll()
 const { usingContext, toggleUsingContext } = useUsingContext()
+
+const showRenameModal = ref(false)
+const renameText = ref('')
+const renameOriginalText = ref('')
+const renameUuid = ref<number>()
+
+function renderIcon(icon: string) {
+  return () => h(SvgIcon, { icon })
+}
 
 const uuid = computed(() => chatStore.active)
 
@@ -57,6 +72,75 @@ const conversationList = computed(() =>
     item => !item.inversion && !!item.conversationOptions,
   ),
 )
+
+const currentChatDetails = computed(() => {
+  return chatStore.history.find(h => h.uuid === uuid.value)
+})
+
+const currentActionOptions = computed(() => {
+  if (!currentChatDetails.value)
+    return []
+  return [
+    {
+      label: currentChatDetails.value.isPin ? 'Unpin' : 'Pin',
+      key: 'pin',
+      icon: renderIcon('ri:pushpin-line'),
+    },
+    {
+      label: 'Rename',
+      key: 'rename',
+      icon: renderIcon('ri:pencil-line'),
+    },
+    {
+      label: 'Delete',
+      key: 'delete',
+      icon: renderIcon('ri:delete-bin-line'),
+    },
+  ]
+})
+
+function handleShare() {
+  try {
+    copyToClip(window.location.href)
+    ms.success('Share link copied to clipboard!')
+  }
+  catch (error) {
+    ms.error('Failed to copy link')
+  }
+}
+
+function handleCurrentAction(key: string) {
+  const item = currentChatDetails.value
+  if (!item)
+    return
+  switch (key) {
+    case 'pin':
+      chatStore.updateHistory(item.uuid, { isPin: !(item as any).isPin } as any)
+      break
+    case 'rename':
+      renameUuid.value = item.uuid
+      renameOriginalText.value = item.title
+      renameText.value = item.title
+      showRenameModal.value = true
+      break
+    case 'delete':
+      {
+        const index = chatStore.history.findIndex(h => h.uuid === item.uuid)
+        if (index !== -1) {
+          chatStore.deleteHistory(index)
+          router.replace({ name: 'Gemini', params: { uuid: '' } })
+        }
+      }
+      break
+  }
+}
+
+function handleRenameSubmit() {
+  if (renameUuid.value && renameText.value.trim() && renameText.value !== renameOriginalText.value)
+    chatStore.updateHistory(renameUuid.value, { title: renameText.value.trim() })
+
+  showRenameModal.value = false
+}
 
 const prompt = ref<string>('')
 const loading = ref<boolean>(false)
@@ -389,29 +473,40 @@ function handleEdit(index: number) {
   if (loading.value)
     return
 
-  const editedMessage = ref(dataSources.value[index].text.slice())
+  editingIndex.value = index
+  editingText.value = dataSources.value[index].text.slice()
+}
 
-  const inputNode = () => {
-    return h(NInput, {
-      'value': editedMessage.value,
-      'type': 'textarea',
-      'autosize': { minRows: 1, maxRows: 8 },
-      'showCount': true,
-      'onUpdate:value': (v: string) => {
-        editedMessage.value = v
-      },
-    })
+function cancelEdit() {
+  editingIndex.value = -1
+  editingText.value = ''
+}
+
+function updateEdit(index: number) {
+  if (editingText.value.trim() === '')
+    return
+  if (editingText.value === dataSources.value[index].text) {
+    cancelEdit()
+    return
   }
 
-  dialog.warning({
-    title: t('common.edit'),
-    content: inputNode,
-    positiveText: t('common.yes'),
-    negativeText: t('common.no'),
-    onPositiveClick: () => {
-      updateChatSome(uuid.value, index, { text: editedMessage.value })
-    },
-  })
+  const newText = editingText.value
+  cancelEdit()
+
+  // Destroy context from 'index' onwards to recreate this branch
+  const len = dataSources.value.length
+  for (let i = len - 1; i >= index; i--)
+    chatStore.deleteChatByUuid(uuid.value, i)
+
+  // Trigger submission with edited text
+  prompt.value = newText
+  handleSubmit()
+}
+
+function adjustTextareaHeight(e: Event) {
+  const target = e.target as HTMLTextAreaElement
+  target.style.height = 'auto'
+  target.style.height = `${target.scrollHeight}px`
 }
 
 function handleClear() {
@@ -551,6 +646,7 @@ const footerClass = computed(() => {
 })
 
 onMounted(() => {
+  homeStore.setMyData({ local: 'Gemini' })
   scrollToBottom()
   if (inputRef.value && !isMobile.value)
     inputRef.value?.focus()
@@ -686,8 +782,8 @@ async function handleFileUpload(event: Event) {
     formData.append('image', files[0])
 
     const response = await uploadImage(formData)
-    if (response.url) {
-      prompt.value = `![Image](${response.url})`
+    if ((response as any).url) {
+      prompt.value = `![Image](${(response as any).url})`
       inputRef.value?.focus()
     }
   }
@@ -708,9 +804,24 @@ async function handleFileUpload(event: Event) {
       <div class="header-left">
         <span class="gemini-logo">Gemini</span>
       </div>
-      <div class="header-right">
-        <div class="user-avatar">
-          <img :src="userInfo.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userInfo.name}`" alt="User">
+      <div class="header-right relative">
+        <button class="w-10 h-10 flex items-center justify-center rounded-full transition-colors gemini-action-btn" @click="handleShare">
+          <SvgIcon icon="ri:share-line" class="text-[20px]" />
+        </button>
+        <NDropdown trigger="click" :options="currentActionOptions" placement="bottom-end" @select="handleCurrentAction">
+          <button class="w-10 h-10 flex items-center justify-center rounded-full transition-colors gemini-action-btn">
+            <SvgIcon icon="ri:more-2-fill" class="text-[20px]" />
+          </button>
+        </NDropdown>
+        <div class="user-avatar-ring">
+          <div class="user-avatar-inner">
+            <template v-if="userInfo.avatar">
+              <img :src="userInfo.avatar" alt="User">
+            </template>
+            <template v-else>
+              <img :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${userInfo.name}`" alt="User">
+            </template>
+          </div>
         </div>
       </div>
     </header>
@@ -746,21 +857,43 @@ async function handleFileUpload(event: Event) {
       <!-- Chat Messages -->
       <div v-else ref="scrollRef" class="chat-messages">
         <div class="messages-container">
-          <Message
-            v-for="(item, index) of dataSources"
-            :key="index"
-            :date-time="item.dateTime"
-            :text="item.text"
-            :inversion="item.inversion"
-            :error="item.error"
-            :loading="item.loading"
-            :chat="item"
-            :index="index"
-            class="gemini-message"
-            @regenerate="onRegenerate(index)"
-            @delete="handleDelete(index)"
-            @edit="handleEdit(index)"
-          />
+          <template v-for="(item, index) of dataSources" :key="index">
+            <!-- Inline Edit Mode -->
+            <div v-if="editingIndex === index" class="gemini-inline-edit-container">
+              <div class="gemini-inline-edit-box">
+                <textarea v-model="editingText" class="gemini-inline-edit-textarea" rows="1" @input="adjustTextareaHeight" />
+              </div>
+              <div class="gemini-inline-edit-actions">
+                <button class="gemini-inline-edit-btn cancel" @click="cancelEdit">
+                  Cancel
+                </button>
+                <button
+                  class="gemini-inline-edit-btn update"
+                  :class="{ active: editingText.trim() !== item.text.trim() }"
+                  @click="updateEdit(index)"
+                >
+                  Update
+                </button>
+              </div>
+            </div>
+
+            <!-- Normal Message -->
+            <Message
+              v-else
+              :date-time="item.dateTime"
+              :text="item.text"
+              :inversion="item.inversion"
+              :error="item.error"
+              :loading="item.loading"
+              :chat="item"
+              :index="index"
+              class="gemini-message"
+              @regenerate="onRegenerate(index)"
+              @delete="handleDelete(index)"
+              @edit="handleEdit(index)"
+            />
+          </template>
+
           <Message
             v-if="ychat.text"
             :key="dataSources.length"
@@ -922,9 +1055,45 @@ async function handleFileUpload(event: Event) {
       </div>
     </main>
   </div>
+
+  <NModal v-model:show="showRenameModal" :mask-closable="true" transform-origin="center">
+    <div class="bg-[#f0f4f9] rounded-[24px] p-6 w-[400px] max-w-[90vw] shadow-xl font-sans text-left">
+      <h3 class="text-[22px] text-[#1f1f1f] mb-6 font-normal">
+        Rename this chat
+      </h3>
+      <div class="mb-6">
+        <NInput
+          v-model:value="renameText"
+          type="text"
+          size="large"
+          class="rename-modal-input"
+          style="border-radius: 8px;"
+          @keyup.enter="handleRenameSubmit"
+        />
+      </div>
+      <div class="flex justify-end gap-2">
+        <button class="px-5 py-2.5 outline-none rounded-full text-[#0b57d0] hover:bg-[#0b57d0]/10 font-medium transition-colors text-sm" @click="showRenameModal = false">
+          Cancel
+        </button>
+        <button class="px-5 py-2.5 outline-none rounded-full text-[#0b57d0] hover:bg-[#0b57d0]/10 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm" :disabled="!renameText.trim() || renameText === renameOriginalText" @click="handleRenameSubmit">
+          Rename
+        </button>
+      </div>
+    </div>
+  </NModal>
 </template>
 
 <style scoped>
+:deep(.rename-modal-input) {
+  --n-border: 1px solid #0b57d0 !important;
+  --n-border-hover: 1px solid #0b57d0 !important;
+  --n-border-focus: 2px solid #0b57d0 !important;
+  --n-box-shadow-focus: none !important;
+  --n-caret-color: #0b57d0 !important;
+  --n-text-color: #1f1f1f !important;
+  --n-color: transparent !important;
+  --n-color-focus: transparent !important;
+}
 .gemini-container {
   display: flex;
   flex-direction: column;
@@ -957,21 +1126,46 @@ async function handleFileUpload(event: Event) {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
 }
 
-.user-avatar {
-  width: 32px;
-  height: 32px;
+.gemini-action-btn {
+  color: #444746 !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.gemini-action-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.user-avatar-ring {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  overflow: hidden;
+  background: conic-gradient(from 225deg, #fbbd04 0deg 90deg, #ea4335 90deg 180deg, #4285f4 180deg 270deg, #34a853 270deg 360deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  border: 2px solid #dadce0;
 }
 
-.user-avatar img {
-  width: 100%;
-  height: 100%;
+.user-avatar-inner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: #f0f4f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.user-avatar-inner img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   object-fit: cover;
 }
 
@@ -1081,8 +1275,10 @@ async function handleFileUpload(event: Event) {
   width: 100%;
   max-width: 820px;
   margin: 0 auto;
-  background: #f0f4f9;
+  background: #ffffff;
   border-radius: 24px;
+  border: 1px solid #e1e3e1;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
@@ -1195,11 +1391,115 @@ async function handleFileUpload(event: Event) {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="%238AB4F8"/></svg>');
-  background-size: 20px 20px;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="g" x1="15%" y1="0%" x2="85%" y2="100%"><stop offset="0%" stop-color="%2386a8fe" /><stop offset="50%" stop-color="%23437afe" /><stop offset="100%" stop-color="%231e5bf0" /></linearGradient></defs><path d="M12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24C12 17.3726 6.62742 12 0 12C6.62742 12 12 6.62742 12 0Z" fill="url(%23g)"/></svg>');
+  background-size: 22px 22px;
   background-repeat: no-repeat;
-  background-position: center;
+  background-position: center top;
   visibility: visible;
+}
+
+/* Hide date/time for bot messages, replaced by Show thinking */
+.gemini-container :deep(.gemini-message:not(.flex-row-reverse) > div.overflow-hidden > p.text-xs) {
+  display: none !important;
+}
+
+/* Unhide and space Show thinking button */
+.gemini-container :deep(.gemini-show-thinking-wrapper.hidden) {
+  display: block !important;
+}
+.gemini-container :deep(.gemini-show-thinking-wrapper) {
+  margin-top: 0;
+  margin-left: 0;
+  height: 32px;
+  display: flex !important;
+  align-items: center;
+}
+.gemini-container :deep(.gemini-show-thinking-btn) {
+  font-family: inherit;
+  color: #1f1f1f;
+  background-color: transparent;
+  padding: 4px 12px;
+}
+.gemini-container :deep(.gemini-show-thinking-btn:hover) {
+  background-color: #f0f4f9;
+}
+
+/* Message Action Buttons formatting (under message) */
+.gemini-container :deep(.gemini-message .message-actions-wrapper) {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+.gemini-container :deep(.gemini-message.flex-row-reverse .message-actions-wrapper) {
+  align-items: flex-end !important;
+}
+.gemini-container :deep(.message-action-buttons) {
+  margin-top: 8px;
+  margin-left: -4px;
+}
+
+/* Inline Edit */
+.gemini-container :deep(.gemini-inline-edit-container) {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  margin-bottom: 24px;
+  align-items: flex-end;
+}
+.gemini-container :deep(.gemini-inline-edit-box) {
+  width: 100%;
+  background: #ffffff;
+  border: 2px solid #0b57d0;
+  border-radius: 20px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+.gemini-container :deep(.gemini-inline-edit-textarea) {
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  font-size: 16px;
+  color: #1f1f1f;
+  background: transparent;
+  line-height: 1.5;
+  font-family: inherit;
+  overflow: hidden;
+}
+.gemini-container :deep(.gemini-inline-edit-actions) {
+  display: flex;
+  gap: 8px;
+}
+.gemini-container :deep(.gemini-inline-edit-btn) {
+  border: none;
+  border-radius: 24px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.gemini-container :deep(.gemini-inline-edit-btn.cancel) {
+  background: transparent;
+  color: #0b57d0;
+}
+.gemini-container :deep(.gemini-inline-edit-btn.cancel:hover) {
+  background: #f0f4f9;
+}
+.gemini-container :deep(.gemini-inline-edit-btn.update) {
+  background: #e3e3e3;
+  color: #8b8b8b;
+  pointer-events: none;
+}
+.gemini-container :deep(.gemini-inline-edit-btn.update.active) {
+  background: #0b57d0;
+  color: #ffffff;
+  pointer-events: auto;
+}
+.gemini-container :deep(.gemini-inline-edit-btn.update.active:hover) {
+  background: #0842a0;
+  color: #ffffff;
 }
 
 /* Fix raw text color for bot messages */

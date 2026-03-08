@@ -6,6 +6,7 @@ import { watch } from 'vue';
 const chatStore = useChatStore() //const chatStore = useChatStore()
 //const dataSources = computed(() => chatStore.getChatByUuid(+uuid))
 watch( ()=>homeStore.myData.local,n=>{
+    if(n === 'Gemini') return ;
     if(! chatStore.active) return ;
     const dataSources =    chatStore.getChatByUuid(+chatStore.active) ;
     if( dataSources.length> 0 ){
