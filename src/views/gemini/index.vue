@@ -21,7 +21,6 @@ import { useBasicLayout } from '@/hooks/useBasicLayout'
 import type { gptsType } from '@/api'
 import {
   chatSetting,
-  fetchChatAPIProcess,
   myFetch,
   uploadImage,
 } from '@/api'
@@ -37,6 +36,9 @@ import { t } from '@/locales'
 import { copyToClip } from '@/utils/copy'
 
 let controller = new AbortController()
+
+const geminiApiKey = ref<string>('')
+const geminiApiUrl = ref<string>('https://generativelanguage.googleapis.com/v1beta')
 
 const openLongReply = import.meta.env.VITE_GLOB_OPEN_LONG_REPLY === 'true'
 
@@ -180,6 +182,11 @@ async function onConversation() {
   if (!message || message.trim() === '')
     return
 
+  if (!geminiApiKey.value) {
+    ms.error('请提供 Gemini API Key')
+    return
+  }
+
   controller = new AbortController()
 
   addChat(uuid.value, {
@@ -195,14 +202,6 @@ async function onConversation() {
   loading.value = true
   prompt.value = ''
 
-  let options: Chat.ConversationRequest = {}
-  const lastContext
-    = conversationList.value[conversationList.value.length - 1]
-      ?.conversationOptions
-
-  if (lastContext && usingContext.value)
-    options = { ...lastContext }
-
   addChat(uuid.value, {
     dateTime: new Date().toLocaleString(),
     text: '思考中',
@@ -210,68 +209,123 @@ async function onConversation() {
     inversion: false,
     error: false,
     conversationOptions: null,
-    requestOptions: { prompt: message, options: { ...options } },
+    requestOptions: { prompt: message, options: null },
   })
   scrollToBottom()
 
   try {
-    let lastText = ''
-    const fetchChatAPIOnce = async () => {
-      await fetchChatAPIProcess<Chat.ConversationResponse>({
-        prompt: message,
-        options,
-        signal: controller.signal,
-        onDownloadProgress: ({ event }) => {
-          const xhr = event.target
-          const { responseText } = xhr
-          const lastIndex = responseText.lastIndexOf(
-            '\n',
-            responseText.length - 2,
-          )
-          let chunk = responseText
-          if (lastIndex !== -1)
-            chunk = responseText.substring(lastIndex)
-          try {
-            const data = JSON.parse(chunk)
-            updateChat(uuid.value, dataSources.value.length - 1, {
-              dateTime: new Date().toLocaleString(),
-              text: lastText + (data.text ?? ''),
-              inversion: false,
-              error: false,
-              loading: true,
-              conversationOptions: {
-                conversationId: data.conversationId,
-                parentMessageId: data.id,
-              },
-              requestOptions: { prompt: message, options: { ...options } },
-            })
-
-            if (
-              openLongReply
-              && data.detail.choices[0].finish_reason === 'length'
-            ) {
-              options.parentMessageId = data.id
-              lastText = data.text
-              message = ''
-              return fetchChatAPIOnce()
-            }
-
-            scrollToBottomIfAtBottom()
-          }
-          catch (error) {
-            //
-          }
-        },
+    const model = currentModel.value.toLowerCase() === 'fast' ? 'gemini-2.0-flash' : 
+                  currentModel.value.toLowerCase() === 'thinking' ? 'gemini-2.5-pro-preview-06-17' :
+                  'gemini-2.5-pro-preview-06-17'
+    
+    const isGeminiOfficial = geminiApiUrl.value.includes('generativelanguage.googleapis.com')
+    
+    let url: string
+    let requestBody: any
+    
+    if (isGeminiOfficial) {
+      url = `${geminiApiUrl.value}/models/${model}:generateContent?key=${geminiApiKey.value}`
+      
+      const conversationHistory: any[] = []
+      dataSources.value.forEach((item) => {
+        if (!item.inversion && !item.loading) {
+          conversationHistory.push({
+            role: 'user',
+            parts: [{ text: item.text }]
+          })
+        } else if (item.inversion) {
+          conversationHistory.push({
+            role: 'model',
+            parts: [{ text: item.text }]
+          })
+        }
       })
-      updateChatSome(uuid.value, dataSources.value.length - 1, { loading: false })
+      
+      requestBody = {
+        contents: conversationHistory,
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.95,
+          maxOutputTokens: 8192,
+        },
+      }
+    } else {
+      url = `${geminiApiUrl.value}/v1/chat/completions`
+      
+      const messages: any[] = []
+      dataSources.value.forEach((item) => {
+        if (item.inversion) {
+          messages.push({
+            role: 'user',
+            content: item.text
+          })
+        } else if (!item.loading) {
+          messages.push({
+            role: 'assistant',
+            content: item.text
+          })
+        }
+      })
+      
+      requestBody = {
+        model: model,
+        messages: messages,
+        temperature: 0.7,
+        top_p: 0.95,
+        max_tokens: 8192,
+      }
     }
 
-    await fetchChatAPIOnce()
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': isGeminiOfficial ? '' : `Bearer ${geminiApiKey.value}`,
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    
+    let responseText = ''
+    if (isGeminiOfficial) {
+      if (data.candidates && data.candidates.length > 0) {
+        const candidate = data.candidates[0]
+        if (candidate.content && candidate.content.parts) {
+          candidate.content.parts.forEach((part: any) => {
+            if (part.text) {
+              responseText += part.text
+            }
+          })
+        }
+      }
+    } else {
+      if (data.choices && data.choices.length > 0) {
+        responseText = data.choices[0].message?.content || ''
+      }
+    }
+
+    updateChat(uuid.value, dataSources.value.length - 1, {
+      dateTime: new Date().toLocaleString(),
+      text: responseText,
+      inversion: false,
+      error: false,
+      loading: false,
+      conversationOptions: null,
+      requestOptions: { prompt: message, options: null },
+    })
+    scrollToBottomIfAtBottom()
   }
   catch (error: any) {
     const errorMessage = error?.message ?? t('common.wrong')
 
-    if (error.message === 'canceled') {
+    if (error.name === 'AbortError') {
       updateChatSome(uuid.value, dataSources.value.length - 1, {
         loading: false,
       })
@@ -300,7 +354,7 @@ async function onConversation() {
       error: true,
       loading: false,
       conversationOptions: null,
-      requestOptions: { prompt: message, options: { ...options } },
+      requestOptions: { prompt: message, options: null },
     })
     scrollToBottomIfAtBottom()
   }
@@ -313,16 +367,16 @@ async function onRegenerate(index: number) {
   if (loading.value)
     return
 
+  if (!geminiApiKey.value) {
+    ms.error('请提供 Gemini API Key')
+    return
+  }
+
   controller = new AbortController()
 
   const { requestOptions } = dataSources.value[index]
 
   let message = requestOptions?.prompt ?? ''
-
-  let options: Chat.ConversationRequest = {}
-
-  if (requestOptions.options)
-    options = { ...requestOptions.options }
 
   loading.value = true
 
@@ -333,62 +387,121 @@ async function onRegenerate(index: number) {
     error: false,
     loading: true,
     conversationOptions: null,
-    requestOptions: { prompt: message, options: { ...options } },
+    requestOptions: { prompt: message, options: null },
   })
 
   try {
-    let lastText = ''
-    const fetchChatAPIOnce = async () => {
-      await fetchChatAPIProcess<Chat.ConversationResponse>({
-        prompt: message,
-        options,
-        signal: controller.signal,
-        onDownloadProgress: ({ event }) => {
-          const xhr = event.target
-          const { responseText } = xhr
-          const lastIndex = responseText.lastIndexOf(
-            '\n',
-            responseText.length - 2,
-          )
-          let chunk = responseText
-          if (lastIndex !== -1)
-            chunk = responseText.substring(lastIndex)
-          try {
-            const data = JSON.parse(chunk)
-            updateChat(uuid.value, index, {
-              dateTime: new Date().toLocaleString(),
-              text: lastText + (data.text ?? ''),
-              inversion: false,
-              error: false,
-              loading: true,
-              conversationOptions: {
-                conversationId: data.conversationId,
-                parentMessageId: data.id,
-              },
-              requestOptions: { prompt: message, options: { ...options } },
-            })
-
-            if (
-              openLongReply
-              && data.detail.choices[0].finish_reason === 'length'
-            ) {
-              options.parentMessageId = data.id
-              lastText = data.text
-              message = ''
-              return fetchChatAPIOnce()
-            }
-          }
-          catch (error) {
-            //
-          }
+    const model = currentModel.value.toLowerCase() === 'fast' ? 'gemini-2.0-flash' : 
+                  currentModel.value.toLowerCase() === 'thinking' ? 'gemini-2.5-pro-preview-06-17' :
+                  'gemini-2.5-pro-preview-06-17'
+    
+    const isGeminiOfficial = geminiApiUrl.value.includes('generativelanguage.googleapis.com')
+    
+    let url: string
+    let requestBody: any
+    
+    if (isGeminiOfficial) {
+      url = `${geminiApiUrl.value}/models/${model}:generateContent?key=${geminiApiKey.value}`
+      
+      const conversationHistory: any[] = []
+      for (let i = 0; i < index; i++) {
+        const item = dataSources.value[i]
+        if (!item.inversion && !item.loading) {
+          conversationHistory.push({
+            role: 'user',
+            parts: [{ text: item.text }]
+          })
+        } else if (item.inversion) {
+          conversationHistory.push({
+            role: 'model',
+            parts: [{ text: item.text }]
+          })
+        }
+      }
+      
+      requestBody = {
+        contents: conversationHistory,
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.95,
+          maxOutputTokens: 8192,
         },
-      })
-      updateChatSome(uuid.value, index, { loading: false })
+      }
+    } else {
+      url = `${geminiApiUrl.value}/v1/chat/completions`
+      
+      const messages: any[] = []
+      for (let i = 0; i < index; i++) {
+        const item = dataSources.value[i]
+        if (item.inversion) {
+          messages.push({
+            role: 'user',
+            content: item.text
+          })
+        } else if (!item.loading) {
+          messages.push({
+            role: 'assistant',
+            content: item.text
+          })
+        }
+      }
+      
+      requestBody = {
+        model: model,
+        messages: messages,
+        temperature: 0.7,
+        top_p: 0.95,
+        max_tokens: 8192,
+      }
     }
-    await fetchChatAPIOnce()
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': isGeminiOfficial ? '' : `Bearer ${geminiApiKey.value}`,
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    
+    let responseText = ''
+    if (isGeminiOfficial) {
+      if (data.candidates && data.candidates.length > 0) {
+        const candidate = data.candidates[0]
+        if (candidate.content && candidate.content.parts) {
+          candidate.content.parts.forEach((part: any) => {
+            if (part.text) {
+              responseText += part.text
+            }
+          })
+        }
+      }
+    } else {
+      if (data.choices && data.choices.length > 0) {
+        responseText = data.choices[0].message?.content || ''
+      }
+    }
+
+    updateChat(uuid.value, index, {
+      dateTime: new Date().toLocaleString(),
+      text: responseText,
+      inversion: false,
+      error: false,
+      loading: false,
+      conversationOptions: null,
+      requestOptions: { prompt: message, options: null },
+    })
   }
   catch (error: any) {
-    if (error.message === 'canceled') {
+    if (error.name === 'AbortError') {
       updateChatSome(uuid.value, index, {
         loading: false,
       })
@@ -651,6 +764,31 @@ onMounted(() => {
   if (inputRef.value && !isMobile.value)
     inputRef.value?.focus()
   document.addEventListener('click', handleClickOutside)
+  
+  const settingsParam = route.query.settings as string
+  if (settingsParam) {
+    try {
+      const settings = JSON.parse(decodeURIComponent(settingsParam))
+      if (settings.key) {
+        geminiApiKey.value = settings.key
+      }
+      if (settings.url) {
+        geminiApiUrl.value = settings.url
+      }
+    } catch (error) {
+      console.error('Failed to parse settings:', error)
+    }
+  }
+  
+  const keyParam = route.query.key as string
+  if (keyParam) {
+    geminiApiKey.value = keyParam
+  }
+  
+  const urlParam = route.query.url as string
+  if (urlParam) {
+    geminiApiUrl.value = urlParam
+  }
 })
 
 onUnmounted(() => {
