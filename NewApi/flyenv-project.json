@@ -1,0 +1,20 @@
+{
+  "flyenv": {
+    "name": "New API",
+    "description": "New API Gateway and Management System",
+    "version": "0.11",
+    "type": "go",
+    "port": 6001,
+    "workingDirectory": "/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/NewApi",
+    "startCommand": "/Users/aydinkaya/Library/FlyEnv/env/golang/bin/go run main.go --port 6001",
+    "stopCommand": "pkill -f 'go run main.go'",
+    "restartCommand": "pkill -f 'go run main.go' && /Users/aydinkaya/Library/FlyEnv/env/golang/bin/go run main.go --port 6001",
+    "buildCommand": "cd web && npm install && npm run build && cd .. && go build -o new-api .",
+    "env": {
+      "PORT": "6001",
+      "TZ": "Asia/Shanghai"
+    },
+    "autoStart": false,
+    "restartOnCrash": false
+  }
+}
