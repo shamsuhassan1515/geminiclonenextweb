@@ -754,6 +754,10 @@ const buttonDisabled = computed(() => {
   return loading.value || !prompt.value || prompt.value.trim() === ''
 })
 
+const hasInput = computed(() => {
+  return prompt.value && prompt.value.trim() !== ''
+})
+
 const footerClass = computed(() => {
   return ['gemini-footer']
 })
@@ -1161,8 +1165,14 @@ async function handleFileUpload(event: Event) {
                 </div>
               </div>
             </div>
-            <button class="action-btn mic-btn" title="Voice input">
-              <SvgIcon icon="ri:mic-line" />
+            <button 
+              class="action-btn mic-btn submit-btn" 
+              :class="{ 'active-send': prompt }"
+              :title="prompt ? 'Send' : 'Voice input'"
+              @click="handleSubmit"
+            >
+              <SvgIcon v-if="!prompt || prompt.length === 0" icon="ri:mic-line" />
+              <SvgIcon v-else icon="ph:paper-plane-right-fill" style="font-size: 24px;" />
             </button>
           </div>
           <input
@@ -1227,6 +1237,37 @@ async function handleFileUpload(event: Event) {
   --n-border-hover: 1px solid #0b57d0 !important;
   --n-border-focus: 2px solid #0b57d0 !important;
   --n-box-shadow-focus: none !important;
+}
+
+.submit-btn {
+  border-radius: 50% !important;
+  width: 36px !important;
+  height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  background: transparent !important;
+  color: #5f6368 !important;
+  transition: all 0.2s ease;
+}
+
+.submit-btn:hover {
+  background-color: rgba(11, 87, 208, 0.1) !important;
+}
+
+.submit-btn.active-send {
+  background-color: #e9eef6 !important;
+  color: #1f1f1f !important;
+  border-radius: 50% !important;
+}
+
+.submit-btn:active {
+  transform: scale(0.95);
+}
+
+:deep(.gemini-input) {
   --n-caret-color: #0b57d0 !important;
   --n-text-color: #1f1f1f !important;
   --n-color: transparent !important;
