@@ -152,6 +152,8 @@ const showUploadMenu = ref<boolean>(false)
 const showToolsMenu = ref<boolean>(false)
 const showModelMenu = ref<boolean>(false)
 const currentModel = ref<string>('Fast')
+const isImageMode = ref<boolean>(false)
+const isLearningMode = ref<boolean>(false)
 
 const promptStore = usePromptStore()
 const { promptList: promptTemplate } = storeToRefs<any>(promptStore)
@@ -214,7 +216,8 @@ async function onConversation() {
   scrollToBottom()
 
   try {
-    const model = currentModel.value.toLowerCase() === 'fast' ? 'gemini-2.0-flash' : 
+    const model = isImageMode.value ? 'gemini-3.1-flash-image-preview' :
+                  currentModel.value.toLowerCase() === 'fast' ? 'gemini-2.0-flash' : 
                   currentModel.value.toLowerCase() === 'thinking' ? 'gemini-2.5-pro-preview-06-17' :
                   'gemini-2.5-pro-preview-06-17'
     
@@ -391,7 +394,8 @@ async function onRegenerate(index: number) {
   })
 
   try {
-    const model = currentModel.value.toLowerCase() === 'fast' ? 'gemini-2.0-flash' : 
+    const model = isImageMode.value ? 'gemini-3.1-flash-image-preview' :
+                  currentModel.value.toLowerCase() === 'fast' ? 'gemini-2.0-flash' : 
                   currentModel.value.toLowerCase() === 'thinking' ? 'gemini-2.5-pro-preview-06-17' :
                   'gemini-2.5-pro-preview-06-17'
     
@@ -747,6 +751,8 @@ const goUseGpts = async (item: gptsType) => {
 }
 
 const placeholder = computed(() => {
+  if (isImageMode.value) return 'Describe your image'
+  if (isLearningMode.value) return 'What do you want to learn?'
   return 'Ask Gemini 3'
 })
 
@@ -843,13 +849,21 @@ const ychat = computed(() => {
 const quickActions = [
   { label: 'For you', icon: '' },
   { label: 'Create image', icon: '🖼️' },
-  { label: 'Create music', icon: '🎸' },
+  { label: 'Guided learning', icon: '📚' },
   { label: 'Help me learn', icon: '' },
   { label: 'Write anything', icon: '' },
   { label: 'Boost my day', icon: '' },
 ]
 
 function handleQuickAction(label: string) {
+  if (label === 'Create image') {
+    toggleImageMode(true)
+    return
+  }
+  if (label === 'Guided learning' || label === 'Help me learn') {
+    toggleLearningMode(true)
+    return
+  }
   prompt.value = label
   handleSubmit()
 }
@@ -862,6 +876,36 @@ function handleUploadClick() {
 function handleToolsClick() {
   showToolsMenu.value = !showToolsMenu.value
   showUploadMenu.value = false
+}
+
+function toggleImageMode(force?: boolean) {
+  console.log('toggleImageMode called', force)
+  if (typeof force === 'boolean')
+    isImageMode.value = force
+  else
+    isImageMode.value = !isImageMode.value
+  
+  if (isImageMode.value) {
+    isLearningMode.value = false
+    ms.success('Image mode enabled')
+  }
+  
+  showToolsMenu.value = false
+}
+
+function toggleLearningMode(force?: boolean) {
+  console.log('toggleLearningMode called', force)
+  if (typeof force === 'boolean')
+    isLearningMode.value = force
+  else
+    isLearningMode.value = !isLearningMode.value
+  
+  if (isLearningMode.value) {
+    isImageMode.value = false
+    ms.success('Guided learning enabled')
+  }
+  
+  showToolsMenu.value = false
 }
 
 // 模型列表
@@ -1058,6 +1102,24 @@ async function handleFileUpload(event: Event) {
       <div class="input-area">
         <div class="input-container">
           <div class="input-box">
+            <div v-if="isImageMode" class="image-mode-badge-container">
+              <div class="image-mode-badge">
+                <SvgIcon icon="ri:image-line" class="badge-icon" />
+                <span class="badge-text">Create image</span>
+                <button class="badge-close" @click.stop="toggleImageMode()">
+                  <SvgIcon icon="ri:close-line" />
+                </button>
+              </div>
+            </div>
+            <div v-if="isLearningMode" class="learning-mode-badge-container">
+              <div class="learning-mode-badge">
+                <SvgIcon icon="ri:book-fill" class="badge-icon" />
+                <span class="badge-text">Guided learning</span>
+                <button class="badge-close" @click.stop="toggleLearningMode()">
+                  <SvgIcon icon="ri:close-line" />
+                </button>
+              </div>
+            </div>
             <input
               ref="inputRef"
               v-model="prompt"
@@ -1084,8 +1146,8 @@ async function handleFileUpload(event: Event) {
               </div>
             </div>
             <div class="tools-menu-container">
-              <button class="action-btn" title="Tools" @click="handleToolsClick">
-                <SvgIcon icon="ri:tools-line" />
+              <button class="action-btn" :class="{ 'tool-active': isImageMode || isLearningMode }" title="Tools" @click="handleToolsClick">
+                <SvgIcon :icon="(isImageMode || isLearningMode) ? 'ri:equalizer-line' : 'ri:tools-line'" />
                 <span>Tools</span>
               </button>
               <div v-if="showToolsMenu" class="tools-menu">
@@ -1093,7 +1155,7 @@ async function handleFileUpload(event: Event) {
                   <h3>Tools</h3>
                 </div>
                 <div class="tools-menu-items">
-                  <button class="tools-menu-item">
+                  <button class="tools-menu-item" @click.stop="toggleImageMode(true)">
                     <SvgIcon icon="ri:image-line" />
                     <span>Create image</span>
                   </button>
@@ -1105,17 +1167,8 @@ async function handleFileUpload(event: Event) {
                     <SvgIcon icon="ri:search-line" />
                     <span>Deep research</span>
                   </button>
-                  <button class="tools-menu-item">
-                    <SvgIcon icon="ri:video-line" />
-                    <span>Create video</span>
-                  </button>
-                  <button class="tools-menu-item">
-                    <SvgIcon icon="ri:music-line" />
-                    <span>Create music</span>
-                    <span class="new-badge">New</span>
-                  </button>
-                  <button class="tools-menu-item">
-                    <SvgIcon icon="ri:book-line" />
+                  <button class="tools-menu-item" @click.stop="toggleLearningMode(true)">
+                    <SvgIcon icon="ri:book-fill" />
                     <span>Guided learning</span>
                   </button>
                 </div>
@@ -1190,7 +1243,7 @@ async function handleFileUpload(event: Event) {
             v-for="action in quickActions"
             :key="action.label"
             class="quick-action-btn"
-            @click="handleQuickAction(action.label)"
+            @click.stop="handleQuickAction(action.label)"
           >
             <span v-if="action.icon" class="action-icon">{{ action.icon }}</span>
             <span>{{ action.label }}</span>
@@ -1232,6 +1285,42 @@ async function handleFileUpload(event: Event) {
 </template>
 
 <style scoped>
+.image-mode-badge-container,
+.learning-mode-badge-container {
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+}
+.image-mode-badge,
+.learning-mode-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: #e8f0fe;
+  border-radius: 12px;
+  color: #1a73e8;
+  font-size: 14px;
+  font-weight: 500;
+}
+.badge-icon {
+  font-size: 16px;
+}
+.badge-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #1967d2;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+}
+.badge-close:hover {
+  background-color: rgba(25, 103, 210, 0.1);
+}
+
 :deep(.rename-modal-input) {
   --n-border: 1px solid #0b57d0 !important;
   --n-border-hover: 1px solid #0b57d0 !important;
