@@ -16,6 +16,7 @@ import { Message } from '../chat/components'
 import { useScroll } from '../chat/hooks/useScroll'
 import { useChat } from '../chat/hooks/useChat'
 import { useUsingContext } from '../chat/hooks/useUsingContext'
+import { deepResearchStore } from '@/store/modules/deepResearch'
 import { SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import type { gptsType } from '@/api'
@@ -154,6 +155,7 @@ const showModelMenu = ref<boolean>(false)
 const currentModel = ref<string>('Fast')
 const isImageMode = ref<boolean>(false)
 const isLearningMode = ref<boolean>(false)
+const isDeepResearchEnabled = computed(() => deepResearchStore.enabled)
 
 const promptStore = usePromptStore()
 const { promptList: promptTemplate } = storeToRefs<any>(promptStore)
@@ -217,18 +219,28 @@ async function onConversation() {
 
   try {
     const model = isImageMode.value ? 'gemini-3.1-flash-image-preview' :
-                  currentModel.value.toLowerCase() === 'fast' ? 'gemini-2.0-flash' : 
+                  currentModel.value.toLowerCase() === 'fast' ? 'gemini-3-flash-preview' :
                   currentModel.value.toLowerCase() === 'thinking' ? 'gemini-2.5-pro-preview-06-17' :
                   'gemini-2.5-pro-preview-06-17'
-    
+
     const isGeminiOfficial = geminiApiUrl.value.includes('generativelanguage.googleapis.com')
-    
+
+    const deepResearchSystemPrompt = `You are a highly capable, thoughtful, and precise research agent that conducts deep research on a specific topic. Be thorough and comprehensive in your research. 
+
+Conduct multi-step research by:
+1. Breaking down the topic into key aspects to investigate
+2. Searching for information on each aspect
+3. Analyzing and synthesizing the findings
+4. Providing a comprehensive, well-structured response
+
+Be curious, analytical, and provide detailed, factual information with citations when possible.`
+
     let url: string
     let requestBody: any
-    
+
     if (isGeminiOfficial) {
       url = `${geminiApiUrl.value}/models/${model}:generateContent?key=${geminiApiKey.value}`
-      
+
       const conversationHistory: any[] = []
       dataSources.value.forEach((item) => {
         if (!item.inversion && !item.loading) {
@@ -243,7 +255,7 @@ async function onConversation() {
           })
         }
       })
-      
+
       requestBody = {
         contents: conversationHistory,
         generationConfig: {
@@ -251,11 +263,28 @@ async function onConversation() {
           topP: 0.95,
           maxOutputTokens: 8192,
         },
+        tools: [
+          { googleSearch: {} }
+        ],
+      }
+
+      if (isDeepResearchEnabled.value && conversationHistory.length > 0) {
+        requestBody.systemInstruction = {
+          parts: [{ text: deepResearchSystemPrompt }]
+        }
       }
     } else {
       url = `${geminiApiUrl.value}/v1/chat/completions`
-      
+
       const messages: any[] = []
+      
+      if (isDeepResearchEnabled.value) {
+        messages.push({
+          role: 'system',
+          content: deepResearchSystemPrompt
+        })
+      }
+      
       dataSources.value.forEach((item) => {
         if (item.inversion) {
           messages.push({
@@ -269,13 +298,21 @@ async function onConversation() {
           })
         }
       })
-      
+
       requestBody = {
         model: model,
         messages: messages,
         temperature: 0.7,
         top_p: 0.95,
         max_tokens: 8192,
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'googleSearch'
+            }
+          }
+        ],
       }
     }
 
@@ -295,7 +332,8 @@ async function onConversation() {
     }
 
     const data = await response.json()
-    
+    console.log('API Response:', data)
+
     let responseText = ''
     if (isGeminiOfficial) {
       if (data.candidates && data.candidates.length > 0) {
@@ -309,8 +347,10 @@ async function onConversation() {
         }
       }
     } else {
+      console.log('Processing OpenAI format response')
       if (data.choices && data.choices.length > 0) {
         responseText = data.choices[0].message?.content || ''
+        console.log('Response text:', responseText)
       }
     }
 
@@ -395,18 +435,18 @@ async function onRegenerate(index: number) {
 
   try {
     const model = isImageMode.value ? 'gemini-3.1-flash-image-preview' :
-                  currentModel.value.toLowerCase() === 'fast' ? 'gemini-2.0-flash' : 
+                  currentModel.value.toLowerCase() === 'fast' ? 'gemini-3-flash-preview' :
                   currentModel.value.toLowerCase() === 'thinking' ? 'gemini-2.5-pro-preview-06-17' :
                   'gemini-2.5-pro-preview-06-17'
-    
+
     const isGeminiOfficial = geminiApiUrl.value.includes('generativelanguage.googleapis.com')
-    
+
     let url: string
     let requestBody: any
-    
+
     if (isGeminiOfficial) {
       url = `${geminiApiUrl.value}/models/${model}:generateContent?key=${geminiApiKey.value}`
-      
+
       const conversationHistory: any[] = []
       for (let i = 0; i < index; i++) {
         const item = dataSources.value[i]
@@ -422,7 +462,7 @@ async function onRegenerate(index: number) {
           })
         }
       }
-      
+
       requestBody = {
         contents: conversationHistory,
         generationConfig: {
@@ -433,7 +473,7 @@ async function onRegenerate(index: number) {
       }
     } else {
       url = `${geminiApiUrl.value}/v1/chat/completions`
-      
+
       const messages: any[] = []
       for (let i = 0; i < index; i++) {
         const item = dataSources.value[i]
@@ -449,7 +489,7 @@ async function onRegenerate(index: number) {
           })
         }
       }
-      
+
       requestBody = {
         model: model,
         messages: messages,
@@ -475,7 +515,7 @@ async function onRegenerate(index: number) {
     }
 
     const data = await response.json()
-    
+
     let responseText = ''
     if (isGeminiOfficial) {
       if (data.candidates && data.candidates.length > 0) {
@@ -521,7 +561,7 @@ async function onRegenerate(index: number) {
       error: true,
       loading: false,
       conversationOptions: null,
-      requestOptions: { prompt: message, options: { ...options } },
+      requestOptions: { prompt: message, options: null },
     })
   }
   finally {
@@ -753,6 +793,7 @@ const goUseGpts = async (item: gptsType) => {
 const placeholder = computed(() => {
   if (isImageMode.value) return 'Describe your image'
   if (isLearningMode.value) return 'What do you want to learn?'
+  if (isDeepResearchEnabled.value) return 'What topic do you want to research?'
   return 'Ask Gemini 3'
 })
 
@@ -774,7 +815,7 @@ onMounted(() => {
   if (inputRef.value && !isMobile.value)
     inputRef.value?.focus()
   document.addEventListener('click', handleClickOutside)
-  
+
   const settingsParam = route.query.settings as string
   if (settingsParam) {
     try {
@@ -789,12 +830,12 @@ onMounted(() => {
       console.error('Failed to parse settings:', error)
     }
   }
-  
+
   const keyParam = route.query.key as string
   if (keyParam) {
     geminiApiKey.value = keyParam
   }
-  
+
   const urlParam = route.query.url as string
   if (urlParam) {
     geminiApiUrl.value = urlParam
@@ -884,12 +925,12 @@ function toggleImageMode(force?: boolean) {
     isImageMode.value = force
   else
     isImageMode.value = !isImageMode.value
-  
+
   if (isImageMode.value) {
     isLearningMode.value = false
     ms.success('Image mode enabled')
   }
-  
+
   showToolsMenu.value = false
 }
 
@@ -899,12 +940,30 @@ function toggleLearningMode(force?: boolean) {
     isLearningMode.value = force
   else
     isLearningMode.value = !isLearningMode.value
-  
+
   if (isLearningMode.value) {
     isImageMode.value = false
     ms.success('Guided learning enabled')
   }
-  
+
+  showToolsMenu.value = false
+}
+
+function toggleDeepResearch() {
+  deepResearchStore.enabled = !deepResearchStore.enabled
+  if (deepResearchStore.enabled) {
+    ms.success('Deep research enabled')
+    // Initialize research state when enabling
+    deepResearchStore.plan = null
+    deepResearchStore.currentCycle = 0
+    deepResearchStore.isResearching = false
+  } else {
+    ms.info('Deep research disabled')
+    // Reset research state when disabling
+    deepResearchStore.plan = null
+    deepResearchStore.currentCycle = 0
+    deepResearchStore.isResearching = false
+  }
   showToolsMenu.value = false
 }
 
@@ -1040,9 +1099,18 @@ async function handleFileUpload(event: Event) {
         </div>
       </div>
 
-      <!-- Chat Messages -->
-      <div v-else ref="scrollRef" class="chat-messages">
-        <div class="messages-container">
+<!-- Chat Messages -->
+       <div v-else ref="scrollRef" class="chat-messages">
+         <!-- Deep Research Plan Display -->
+         <div v-if="isDeepResearchEnabled && deepResearchStore.plan" class="deep-research-plan-display">
+           <DeepResearchPlanRenderer 
+             :plan="deepResearchStore.plan"
+             :currentCycle="deepResearchStore.currentCycle"
+             :maxCycles="deepResearchStore.maxCycles"
+             :isResearching="deepResearchStore.isResearching"
+           />
+         </div>
+         <div class="messages-container">
           <template v-for="(item, index) of dataSources" :key="index">
             <!-- Inline Edit Mode -->
             <div v-if="editingIndex === index" class="gemini-inline-edit-container">
@@ -1112,14 +1180,23 @@ async function handleFileUpload(event: Event) {
               </div>
             </div>
             <div v-if="isLearningMode" class="learning-mode-badge-container">
-              <div class="learning-mode-badge">
-                <SvgIcon icon="ri:book-fill" class="badge-icon" />
-                <span class="badge-text">Guided learning</span>
-                <button class="badge-close" @click.stop="toggleLearningMode()">
-                  <SvgIcon icon="ri:close-line" />
-                </button>
-              </div>
-            </div>
+               <div class="learning-mode-badge">
+                 <SvgIcon icon="ri:book-fill" class="badge-icon" />
+                 <span class="badge-text">Guided learning</span>
+                 <button class="badge-close" @click.stop="toggleLearningMode()">
+                   <SvgIcon icon="ri:close-line" />
+                 </button>
+               </div>
+             </div>
+             <div v-if="isDeepResearchEnabled" class="deep-research-mode-badge-container">
+               <div class="deep-research-mode-badge">
+                 <SvgIcon icon="ri:search-line" class="badge-icon" />
+                 <span class="badge-text">Deep research</span>
+                 <button class="badge-close" @click.stop="toggleDeepResearch()">
+                   <SvgIcon icon="ri:close-line" />
+                 </button>
+               </div>
+             </div>
             <input
               ref="inputRef"
               v-model="prompt"
@@ -1146,32 +1223,32 @@ async function handleFileUpload(event: Event) {
               </div>
             </div>
             <div class="tools-menu-container">
-              <button class="action-btn" :class="{ 'tool-active': isImageMode || isLearningMode }" title="Tools" @click="handleToolsClick">
-                <SvgIcon :icon="(isImageMode || isLearningMode) ? 'ri:equalizer-line' : 'ri:tools-line'" />
+              <button class="action-btn" :class="{ 'tool-active': isImageMode || isLearningMode || isDeepResearchEnabled }" title="Tools" @click="handleToolsClick">
+                <SvgIcon :icon="(isImageMode || isLearningMode || isDeepResearchEnabled) ? 'ri:equalizer-line' : 'ri:tools-line'" />
                 <span>Tools</span>
               </button>
               <div v-if="showToolsMenu" class="tools-menu">
                 <div class="tools-menu-header">
                   <h3>Tools</h3>
                 </div>
-                <div class="tools-menu-items">
-                  <button class="tools-menu-item" @click.stop="toggleImageMode(true)">
-                    <SvgIcon icon="ri:image-line" />
-                    <span>Create image</span>
-                  </button>
-                  <button class="tools-menu-item">
-                    <SvgIcon icon="ri:layout-grid-line" />
-                    <span>Canvas</span>
-                  </button>
-                  <button class="tools-menu-item">
-                    <SvgIcon icon="ri:search-line" />
-                    <span>Deep research</span>
-                  </button>
-                  <button class="tools-menu-item" @click.stop="toggleLearningMode(true)">
-                    <SvgIcon icon="ri:book-fill" />
-                    <span>Guided learning</span>
-                  </button>
-                </div>
+<div class="tools-menu-items">
+                   <button class="tools-menu-item" @click.stop="toggleImageMode(true)">
+                     <SvgIcon icon="ri:image-line" />
+                     <span>Create image</span>
+                   </button>
+                   <button class="tools-menu-item">
+                     <SvgIcon icon="ri:layout-grid-line" />
+                     <span>Canvas</span>
+                   </button>
+                   <button class="tools-menu-item" @click.stop="toggleDeepResearch">
+                     <SvgIcon :icon="isDeepResearchEnabled ? 'ri:search-line' : 'ri:search-line'" />
+                     <span>Deep research</span>
+                   </button>
+                   <button class="tools-menu-item" @click.stop="toggleLearningMode(true)">
+                     <SvgIcon icon="ri:book-fill" />
+                     <span>Guided learning</span>
+                   </button>
+                 </div>
                 <div class="tools-menu-footer">
                   <div class="experimental-features">
                     <span>Experimental features</span>
@@ -1218,8 +1295,8 @@ async function handleFileUpload(event: Event) {
                 </div>
               </div>
             </div>
-            <button 
-              class="action-btn mic-btn submit-btn" 
+            <button
+              class="action-btn mic-btn submit-btn"
               :class="{ 'active-send': prompt }"
               :title="prompt ? 'Send' : 'Voice input'"
               @click="handleSubmit"
@@ -1286,13 +1363,15 @@ async function handleFileUpload(event: Event) {
 
 <style scoped>
 .image-mode-badge-container,
-.learning-mode-badge-container {
+.learning-mode-badge-container,
+.deep-research-mode-badge-container {
   padding: 4px 8px;
   display: flex;
   align-items: center;
 }
 .image-mode-badge,
-.learning-mode-badge {
+.learning-mode-badge,
+.deep-research-mode-badge {
   display: flex;
   align-items: center;
   gap: 8px;

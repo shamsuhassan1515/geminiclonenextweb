@@ -365,6 +365,10 @@ func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 
 	// openaiContent.FuncToToolCalls()
 	if textRequest.Tools != nil {
+		logger.LogDebug(c, fmt.Sprintf("Found %d tools in request", len(textRequest.Tools)))
+		for i, tool := range textRequest.Tools {
+			logger.LogDebug(c, fmt.Sprintf("Tool %d: %s", i, tool.Function.Name))
+		}
 		functions := make([]dto.FunctionRequest, 0, len(textRequest.Tools))
 		googleSearch := false
 		codeExecution := false
@@ -372,14 +376,17 @@ func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 		for _, tool := range textRequest.Tools {
 			if tool.Function.Name == "googleSearch" {
 				googleSearch = true
+				logger.LogDebug(c, "Detected googleSearch tool")
 				continue
 			}
 			if tool.Function.Name == "codeExecution" {
 				codeExecution = true
+				logger.LogDebug(c, "Detected codeExecution tool")
 				continue
 			}
 			if tool.Function.Name == "urlContext" {
 				urlContext = true
+				logger.LogDebug(c, "Detected urlContext tool")
 				continue
 			}
 			if tool.Function.Parameters != nil {
@@ -406,22 +413,25 @@ func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 		}
 		if googleSearch {
 			geminiTools = append(geminiTools, dto.GeminiChatTool{
-				GoogleSearch: make(map[string]string),
+				GoogleSearch: struct{}{},
 			})
 		}
 		if urlContext {
 			geminiTools = append(geminiTools, dto.GeminiChatTool{
-				URLContext: make(map[string]string),
-			})
-		}
-		if len(functions) > 0 {
-			geminiTools = append(geminiTools, dto.GeminiChatTool{
-				FunctionDeclarations: functions,
-			})
-		}
-		geminiRequest.SetTools(geminiTools)
+			URLContext: make(map[string]string),
+		})
+	}
+	if len(functions) > 0 {
+		geminiTools = append(geminiTools, dto.GeminiChatTool{
+			FunctionDeclarations: functions,
+		})
+	}
+	logger.LogDebug(c, fmt.Sprintf("Setting %d geminiTools", len(geminiTools)))
+	toolsJson, _ := json.Marshal(geminiTools)
+	logger.LogDebug(c, fmt.Sprintf("geminiTools content: %s", string(toolsJson)))
+	geminiRequest.SetTools(geminiTools)
 
-		// [NEW] Convert OpenAI tool_choice to Gemini toolConfig.functionCallingConfig
+	// [NEW] Convert OpenAI tool_choice to Gemini toolConfig.functionCallingConfig
 		// Mapping: "auto" -> "AUTO", "none" -> "NONE", "required" -> "ANY"
 		// Object format: {"type": "function", "function": {"name": "xxx"}} -> "ANY" + allowedFunctionNames
 		if textRequest.ToolChoice != nil {

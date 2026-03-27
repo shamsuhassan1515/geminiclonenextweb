@@ -758,6 +758,27 @@ func GeminiToOpenAIRequest(geminiRequest *dto.GeminiChatRequest, info *relaycomm
 					}
 					tools = append(tools, openAITool)
 				}
+			} else if tool.GoogleSearch != nil {
+				tools = append(tools, dto.ToolCallRequest{
+					Type: "function",
+					Function: dto.FunctionRequest{
+						Name: "googleSearch",
+					},
+				})
+			} else if tool.CodeExecution != nil {
+				tools = append(tools, dto.ToolCallRequest{
+					Type: "function",
+					Function: dto.FunctionRequest{
+						Name: "codeExecution",
+					},
+				})
+			} else if tool.URLContext != nil {
+				tools = append(tools, dto.ToolCallRequest{
+					Type: "function",
+					Function: dto.FunctionRequest{
+						Name: "urlContext",
+					},
+				})
 			}
 		}
 		if len(tools) > 0 {

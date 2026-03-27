@@ -316,11 +316,11 @@ type GeminiChatSafetySettings struct {
 }
 
 type GeminiChatTool struct {
-	GoogleSearch          any `json:"googleSearch,omitempty"`
-	GoogleSearchRetrieval any `json:"googleSearchRetrieval,omitempty"`
-	CodeExecution         any `json:"codeExecution,omitempty"`
-	FunctionDeclarations  any `json:"functionDeclarations,omitempty"`
-	URLContext            any `json:"urlContext,omitempty"`
+	GoogleSearch          any `json:"google_search,omitempty"`
+	GoogleSearchRetrieval any `json:"google_search_retrieval,omitempty"`
+	CodeExecution         any `json:"code_execution,omitempty"`
+	FunctionDeclarations  any `json:"function_declarations,omitempty"`
+	URLContext            any `json:"url_context,omitempty"`
 }
 
 type GeminiChatGenerationConfig struct {
