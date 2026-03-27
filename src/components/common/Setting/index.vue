@@ -6,6 +6,7 @@ import Advanced from './Advanced.vue'
 import aiModel from '@/views/mj/aiModel.vue'
 import aiSetServer from '@/views/mj/aiSetServer.vue'
 import About from './About.vue'
+import WebSearchSettings from '@/../web search/WebSearchSettings.vue'
 import { homeStore, useAuthStore } from '@/store'
 import { SvgIcon } from '@/components/common'
 
@@ -68,6 +69,13 @@ const show = computed({
             <span class="ml-2">{{ $t('mjset.server') }}</span>
           </template>
           <aiSetServer />
+        </NTabPane>
+        <NTabPane name="Search" tab="Search">
+          <template #tab>
+            <SvgIcon class="text-lg" icon="ri:search-line" />
+            <span class="ml-2">搜索</span>
+          </template>
+          <WebSearchSettings />
         </NTabPane>
         <NTabPane name="Config" tab="Config">
           <template #tab>
