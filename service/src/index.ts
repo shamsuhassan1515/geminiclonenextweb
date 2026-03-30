@@ -21,6 +21,8 @@ import axios from 'axios';
 import AWS  from 'aws-sdk';
 import { v4 as uuidv4} from 'uuid';
 import { viggleProxyFileDo,viggleProxy, lumaProxy, runwayProxy, ideoProxy, ideoProxyFileDo, klingProxy, pikaProxy, udioProxy, runwaymlProxy, pixverseProxy, sunoProxy, GptImageEdit } from './myfun'
+import { runDeepResearch, type DeepResearchConfig } from './deepresearch/dr_loop'
+import type { SearchProviderType } from './deepresearch/types'
 
 
 const app = express()
@@ -37,10 +39,15 @@ app.use(bodyParser.json({ limit: '10mb' })); //大文件传输
 
 
 
-app.all('*', (_, res, next) => {
+app.all('*', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*')
-  res.header('Access-Control-Allow-Headers', 'authorization, Content-Type')
+  res.header('Access-Control-Allow-Headers', 'authorization, Content-Type, X-Ptoken, X-Vtoken')
   res.header('Access-Control-Allow-Methods', '*')
+  res.header('Access-Control-Allow-Credentials', 'true')
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200)
+    return
+  }
   next()
 })
 
@@ -395,6 +402,63 @@ router.post('/webdav-proxy', authV2, async (req, res) => {
 })
 
 
+
+interface DeepResearchRequest {
+  message: string
+  model: string
+  geminiApiKey: string
+  geminiApiUrl: string
+  providerType: SearchProviderType
+  searchApiKey?: string
+  searchEngineId?: string
+  searchBaseUrl?: string
+  useThinking?: boolean
+  isOfficial?: boolean
+}
+
+router.post('/chat-deep-research', authV2, async (req, res) => {
+  res.setHeader('Content-type', 'application/octet-stream')
+  
+  try {
+    const body = req.body as DeepResearchRequest
+    
+    if (!body.message) {
+      res.write(JSON.stringify({ error: 'Message is required' }))
+      res.end()
+      return
+    }
+    
+    if (!body.geminiApiKey) {
+      res.write(JSON.stringify({ error: 'Gemini API Key is required' }))
+      res.end()
+      return
+    }
+    
+    const config: DeepResearchConfig = {
+      model: body.model || 'gemini-2.5-pro-preview-06-17',
+      geminiApiKey: body.geminiApiKey,
+      geminiApiUrl: body.geminiApiUrl || 'https://generativelanguage.googleapis.com/v1beta',
+      providerType: body.providerType || 'serper',
+      searchConfig: {
+        apiKey: body.searchApiKey,
+        searchEngineId: body.searchEngineId,
+        baseUrl: body.searchBaseUrl
+      },
+      useThinking: body.useThinking ?? true,
+      isOfficial: body.isOfficial ?? (body.geminiApiUrl.includes('generativelanguage.googleapis.com'))
+    }
+    
+    await runDeepResearch(body.message, config, (event) => {
+      res.write(JSON.stringify(event) + '\n')
+    })
+  }
+  catch (error: any) {
+    res.write(JSON.stringify({ type: 'error', error: error.message }))
+  }
+  finally {
+    res.end()
+  }
+})
 
 app.use('', router)
 app.use('/api', router)

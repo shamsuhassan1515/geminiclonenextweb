@@ -12,6 +12,12 @@ declare namespace Chat {
 		requestOptions: { prompt: string; options?: ConversationRequest | null }
 		model?:string //模型
 		mjID?:string //MJ的ID
+		deepResearchData?: {
+			plan?: string
+			searchProcess?: string
+			thinkProcess?: string
+			finalReport?: string
+		}
 		opt?:{
 			progress?:string,seed?:number, imageUrl?:string
 			, status?:string, images?:string[]

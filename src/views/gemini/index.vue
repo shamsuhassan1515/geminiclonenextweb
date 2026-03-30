@@ -206,6 +206,11 @@ async function onConversation() {
   loading.value = true
   prompt.value = ''
 
+  if (isDeepResearchEnabled.value) {
+    await handleDeepResearchConversation(message)
+    return
+  }
+
   addChat(uuid.value, {
     dateTime: new Date().toLocaleString(),
     text: '思考中',
@@ -400,6 +405,197 @@ Be curious, analytical, and provide detailed, factual information with citations
       requestOptions: { prompt: message, options: null },
     })
     scrollToBottomIfAtBottom()
+  }
+  finally {
+    loading.value = false
+  }
+}
+
+interface DeepResearchEvent {
+  type: 'search' | 'think' | 'plan_start' | 'plan_delta' | 'report_start' | 'report_delta' | 'done' | 'error'
+  query?: string
+  results?: { title: string; url: string; snippet: string }[]
+  content?: string
+  plan?: string
+  error?: string
+}
+
+async function handleDeepResearchConversation(message: string) {
+  addChat(uuid.value, {
+    dateTime: new Date().toLocaleString(),
+    text: '正在启动深度研究...',
+    loading: true,
+    inversion: false,
+    error: false,
+    conversationOptions: null,
+    requestOptions: { prompt: message, options: null },
+  })
+  scrollToBottom()
+
+  const providerType = localStorage.getItem('web_search_providers')
+  let providerTypeValue = 'serper'
+  let searchApiKey = ''
+  let searchEngineId = ''
+  let searchBaseUrl = ''
+  
+  try {
+    if (providerType) {
+      const providers = JSON.parse(providerType)
+      const activeProvider = providers.find((p: any) => p.isActive)
+      if (activeProvider) {
+        providerTypeValue = activeProvider.providerType
+        searchApiKey = activeProvider.apiKey || ''
+        searchEngineId = activeProvider.config?.search_engine_id || ''
+        searchBaseUrl = activeProvider.config?.searxng_base_url || activeProvider.config?.api_base_url || ''
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse search providers:', e)
+  }
+
+  const model = currentModel.value.toLowerCase() === 'fast' ? 'gemini-3-flash-preview' :
+                currentModel.value.toLowerCase() === 'thinking' ? 'gemini-2.5-pro-preview-06-17' :
+                'gemini-2.5-pro-preview-06-17'
+
+  const isGeminiOfficial = geminiApiUrl.value.includes('generativelanguage.googleapis.com')
+
+const requestBody = {
+    message,
+    model,
+    geminiApiKey: geminiApiKey.value,
+    geminiApiUrl: geminiApiUrl.value,
+    providerType: providerTypeValue,
+    searchApiKey,
+    searchBaseUrl,
+    useThinking: true,
+    isOfficial: isGeminiOfficial
+  }
+
+  console.log('[DeepResearch] Request body:', JSON.stringify(requestBody))
+
+  const serviceUrl = import.meta.env.VITE_APP_API_BASE_URL || 'http://localhost:3002'
+
+  try {
+    const response = await fetch(`${serviceUrl}/chat-deep-research`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('Failed to read response stream')
+    }
+
+    let buffer = ''
+    let responseText = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const decoder = new TextDecoder()
+      buffer += decoder.decode(value, { stream: true })
+
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const event: DeepResearchEvent = JSON.parse(line)
+          
+          if (event.type === 'error') {
+            throw new Error(event.error)
+          }
+
+          let researchPlan = ''
+          let searchProcess = ''
+          let thinkProcess = ''
+          let finalReport = ''
+
+          if (event.type === 'plan_start' || event.type === 'plan_delta') {
+            researchPlan += event.plan || event.content || ''
+          }
+
+          if (event.type === 'think' || event.type === 'plan_delta') {
+            thinkProcess += event.content || ''
+          }
+
+          if (event.type === 'search' && event.query) {
+            searchProcess += `\n\n🔍 搜索: ${event.query}\n`
+            if (event.results && event.results.length > 0) {
+              searchProcess += `找到 ${event.results.length} 个结果:\n`
+              event.results.forEach((r, i) => {
+                searchProcess += `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}\n`
+              })
+            }
+          }
+
+          if (event.type === 'report_start' || event.type === 'report_delta') {
+            finalReport += event.content || ''
+          }
+
+          if (event.type === 'done') {
+            let displayText = '正在整理研究报告...'
+            if (finalReport && finalReport.length > 100) {
+              displayText = finalReport
+            } else if (researchPlan && researchPlan.length > 50) {
+              displayText = '研究进行中，点击下方按钮查看详细过程...'
+            } else {
+              displayText = finalReport || researchPlan || '研究完成'
+            }
+            
+            const deepResearchData = {
+              plan: researchPlan,
+              searchProcess,
+              thinkProcess,
+              finalReport: finalReport
+            }
+            updateChat(uuid.value, dataSources.value.length - 1, {
+              dateTime: new Date().toLocaleString(),
+              text: displayText,
+              inversion: false,
+              error: false,
+              loading: false,
+              conversationOptions: null,
+              requestOptions: { prompt: message, options: null },
+              deepResearchData
+            })
+            scrollToBottomIfAtBottom()
+          }
+        } catch (e) {
+          console.error('Failed to parse event:', e)
+        }
+      }
+    }
+  } catch (error: any) {
+    const errorMessage = error?.message ?? 'Deep research failed'
+
+    if (error.name === 'AbortError') {
+      updateChatSome(uuid.value, dataSources.value.length - 1, {
+        loading: false,
+      })
+      return
+    }
+
+    updateChat(uuid.value, dataSources.value.length - 1, {
+      dateTime: new Date().toLocaleString(),
+      text: errorMessage,
+      inversion: false,
+      error: true,
+      loading: false,
+      conversationOptions: null,
+      requestOptions: { prompt: message, options: null },
+    })
   }
   finally {
     loading.value = false

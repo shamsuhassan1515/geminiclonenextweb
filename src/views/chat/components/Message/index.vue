@@ -21,6 +21,8 @@ interface Props {
   index: number
 }
 
+const showResearchProcess = ref(false)
+
 interface Emit {
   (ev: 'regenerate'): void
   (ev: 'delete'): void
@@ -152,10 +154,25 @@ function handleRegenerate2() {
         </template>
       </p>
 
-      <div v-if="!inversion && !chat.mjID && !isDallImageModel(chat.model)" class="gemini-show-thinking-wrapper hidden">
-        <button class="gemini-show-thinking-btn flex items-center text-[#202124] rounded-full text-[14px] font-medium transition-colors whitespace-nowrap">
-          Show thinking <SvgIcon icon="ri:arrow-down-s-line" class="ml-1 text-lg" />
+      <div v-if="!inversion && !chat.mjID && !isDallImageModel(chat.model)" class="gemini-show-thinking-wrapper" :class="{ 'hidden': !chat.deepResearchData }">
+        <button v-if="chat.deepResearchData" class="gemini-show-thinking-btn flex items-center text-[#202124] rounded-full text-[14px] font-medium transition-colors whitespace-nowrap" @click="showResearchProcess = !showResearchProcess">
+          {{ showResearchProcess ? 'Hide research process' : 'Show research process' }} <SvgIcon :icon="showResearchProcess ? 'ri:arrow-up-s-line' : 'ri:arrow-down-s-line'" class="ml-1 text-lg" />
         </button>
+      </div>
+
+      <div v-if="!inversion && chat.deepResearchData && showResearchProcess" class="deep-research-process mt-2 p-3 bg-gray-100 rounded-lg text-xs max-h-60 overflow-y-auto">
+        <div v-if="chat.deepResearchData.plan" class="mb-2">
+          <div class="font-semibold text-gray-700">研究计划:</div>
+          <div class="text-gray-600 whitespace-pre-wrap">{{ chat.deepResearchData.plan }}</div>
+        </div>
+        <div v-if="chat.deepResearchData.searchProcess" class="mb-2">
+          <div class="font-semibold text-gray-700">搜索过程:</div>
+          <div class="text-gray-600 whitespace-pre-wrap">{{ chat.deepResearchData.searchProcess }}</div>
+        </div>
+        <div v-if="chat.deepResearchData.thinkProcess">
+          <div class="font-semibold text-gray-700">思考分析:</div>
+          <div class="text-gray-600 whitespace-pre-wrap">{{ chat.deepResearchData.thinkProcess }}</div>
+        </div>
       </div>
 
       <div
