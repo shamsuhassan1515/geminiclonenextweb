@@ -5,9 +5,13 @@ import { NDropdown, NInput, NLayoutSider, NModal, NScrollbar, useMessage } from 
 import { useAppStore, useChatStore } from '@/store'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { SvgIcon } from '@/components/common'
+import LoginForm from '@/components/common/LoginForm.vue'
+import UserPanel from '@/components/common/UserPanel.vue'
+import { useAuthStore } from '@/store/modules/auth'
 
 const appStore = useAppStore()
 const chatStore = useChatStore()
+const authStore = useAuthStore()
 
 const { isMobile } = useBasicLayout()
 const showSettingsMenu = ref(false)
@@ -32,6 +36,11 @@ function handleAdd() {
 
 function handleUpdateCollapsed() {
   appStore.setSiderCollapsed(!collapsed.value)
+}
+
+function openDeepResearch() {
+  const router = useRouter()
+  router.push('/deep-research')
 }
 
 async function handleSelect({ uuid }: Chat.History) {
@@ -181,6 +190,10 @@ watch(
         </div>
 
         <div v-show="!collapsed" class="px-4 space-y-1 mb-4">
+          <button class="w-full flex items-center gap-3 px-3 py-2 rounded-full gemini-nav-item transition-colors text-sm" @click="openDeepResearch">
+            <SvgIcon icon="ri:search-2-line" class="gemini-icon" />
+            <span class="text-[#1f1f1f]">深度研究</span>
+          </button>
           <button class="w-full flex items-center gap-3 px-3 py-2 rounded-full gemini-nav-item transition-colors text-sm">
             <SvgIcon icon="ri:history-line" class="gemini-icon" />
             <span class="text-[#1f1f1f]">Scheduled actions</span>
@@ -252,6 +265,16 @@ watch(
       </div>
     </div>
   </NLayoutSider>
+
+  <NModal v-model:show="showSettingsMenu" :mask-closable="true" transform-origin="center">
+    <div class="bg-[#f0f4f9] rounded-[24px] p-6 w-[360px] max-w-[90vw] shadow-xl font-sans text-left">
+      <h3 class="text-[22px] text-[#1f1f1f] mb-6 font-normal">
+        {{ authStore.isLoggedIn ? '账户信息' : '登录' }}
+      </h3>
+      <LoginForm v-if="!authStore.isLoggedIn" @success="showSettingsMenu = false" />
+      <UserPanel v-else @success="showSettingsMenu = false" />
+    </div>
+  </NModal>
   <template v-if="isMobile">
     <div v-show="!collapsed" class="fixed inset-0 z-40 w-full h-full bg-black/40" @click="handleUpdateCollapsed" />
   </template>
