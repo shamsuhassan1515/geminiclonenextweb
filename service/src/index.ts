@@ -23,6 +23,8 @@ import { v4 as uuidv4} from 'uuid';
 import { viggleProxyFileDo,viggleProxy, lumaProxy, runwayProxy, ideoProxy, ideoProxyFileDo, klingProxy, pikaProxy, udioProxy, runwaymlProxy, pixverseProxy, sunoProxy, GptImageEdit } from './myfun'
 import { runDeepResearch, type DeepResearchConfig } from './deepresearch/dr_loop'
 import type { SearchProviderType } from './deepresearch/types'
+import { DeerflowClient, transformDeerflowEvent } from './deerflow/client'
+import newApiRouter from './routes/newapi'
 
 
 const app = express()
@@ -460,6 +462,210 @@ router.post('/chat-deep-research', authV2, async (req, res) => {
   }
 })
 
+// DeerFlow Deep Research API
+router.post('/deerflow-research', authV2, async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+
+  try {
+    const { plan, deerflowUrl } = req.body
+
+    if (!plan) {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Research plan is required' })}\n\n`)
+      res.end()
+      return
+    }
+
+    const client = new DeerflowClient({
+      baseUrl: deerflowUrl || 'http://localhost:2026'
+    })
+
+    // 1. Create thread
+    res.write(`data: ${JSON.stringify({ type: 'status', message: 'Creating research thread...' })}\n\n`)
+    const threadId = await client.createThread()
+    console.log('[DeerFlow] Thread created:', threadId)
+    res.write(`data: ${JSON.stringify({ type: 'thread_created', threadId })}\n\n`)
+
+    // 2. Create run with formatted research message
+    res.write(`data: ${JSON.stringify({ type: 'status', message: 'Starting research...' })}\n\n`)
+    
+    // Format the research message
+    const researchMessage = `Please conduct deep research on the following topic:
+
+${plan}
+
+Instructions:
+1. Search for current, factual information
+2. Analyze multiple sources
+3. Provide a comprehensive, well-structured response
+4. Include specific data, facts, and citations where possible`
+
+    const runId = await client.createRun(threadId, researchMessage)
+    console.log('[DeerFlow] Run created:', runId)
+    res.write(`data: ${JSON.stringify({ type: 'run_created', runId })}\n\n`)
+
+    // 3. Stream results
+    let progress = 0
+    let stepCount = 0
+
+    for await (const event of client.streamResults(threadId, runId)) {
+      const transformed = transformDeerflowEvent(event)
+
+      if (transformed) {
+        // Skip raw events
+        if (transformed.type === 'raw') {
+          continue
+        }
+
+        // Update progress based on event type
+        switch (transformed.type) {
+          case 'think':
+            progress = Math.min(progress + 2, 85)
+            // Only send meaningful think content
+            if (transformed.content && transformed.content.length > 20 && 
+                !transformed.content.includes('=== Research Cycle') &&
+                !transformed.content.includes('=== Generating Final Report')) {
+              res.write(`data: ${JSON.stringify({
+                type: 'think',
+                content: transformed.content,
+                progress,
+                step: stepCount
+              })}\n\n`)
+            }
+            break
+
+          case 'search':
+            progress = Math.min(progress + 8, 85)
+            stepCount++
+            res.write(`data: ${JSON.stringify({
+              type: 'search',
+              query: transformed.query || 'Searching...',
+              progress,
+              step: stepCount
+            })}\n\n`)
+            break
+
+          case 'search_result':
+            progress = Math.min(progress + 5, 85)
+            res.write(`data: ${JSON.stringify({
+              type: 'search_result',
+              results: transformed.results,
+              progress,
+              step: stepCount
+            })}\n\n`)
+            break
+
+          case 'tool_start':
+            progress = Math.min(progress + 5, 85)
+            stepCount++
+            // Convert tool calls to search events
+            if (transformed.tool === 'web_search' || transformed.tool === 'web_fetch') {
+              const query = transformed.input?.query || 
+                           (typeof transformed.input === 'string' ? transformed.input : 
+                           JSON.stringify(transformed.input || {}).slice(0, 100))
+              res.write(`data: ${JSON.stringify({
+                type: 'search',
+                query,
+                progress,
+                step: stepCount
+              })}\n\n`)
+            } else if (transformed.tool !== 'read_file') {
+              // Skip read_file tool calls (used for loading skills)
+              res.write(`data: ${JSON.stringify({
+                type: 'status',
+                message: `执行: ${transformed.tool}`,
+                progress,
+                step: stepCount
+              })}\n\n`)
+            }
+            break
+
+          case 'tool_end':
+            progress = Math.min(progress + 3, 85)
+            // Show tool results if meaningful
+            if (transformed.output && transformed.output.length > 10 && 
+                transformed.output !== '[]' && transformed.tool !== 'read_file') {
+              res.write(`data: ${JSON.stringify({
+                type: 'search_result',
+                content: transformed.output,
+                progress,
+                step: stepCount
+              })}\n\n`)
+            }
+            break
+
+          case 'tool_result':
+            progress = Math.min(progress + 3, 85)
+            if (transformed.content && transformed.content.length > 10 && transformed.content !== '[]') {
+              res.write(`data: ${JSON.stringify({
+                type: 'search_result',
+                content: transformed.content,
+                progress,
+                step: stepCount
+              })}\n\n`)
+            }
+            break
+
+          case 'step_end':
+            progress = Math.min(progress + 10, 85)
+            break
+
+          case 'status':
+          case 'error':
+            res.write(`data: ${JSON.stringify({
+              ...transformed,
+              progress,
+              step: stepCount
+            })}\n\n`)
+            break
+        }
+
+        // Send progress update
+        if (progress > 0) {
+          res.write(`data: ${JSON.stringify({ type: 'progress', value: progress })}\n\n`)
+        }
+      }
+    }
+
+    // 4. Complete
+    res.write(`data: ${JSON.stringify({ type: 'progress', value: 100 })}\n\n`)
+    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+  }
+  catch (error: any) {
+    console.error('[DeerFlow] Error:', error.message)
+    res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`)
+  }
+  finally {
+    res.end()
+  }
+})
+
+// Get DeerFlow run status
+router.get('/deerflow-status/:threadId/:runId', authV2, async (req, res) => {
+  try {
+    const { threadId, runId } = req.params
+    const client = new DeerflowClient()
+    const status = await client.getRunStatus(threadId, runId)
+    res.json({ success: true, data: status })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Cancel DeerFlow run
+router.post('/deerflow-cancel/:threadId/:runId', authV2, async (req, res) => {
+  try {
+    const { threadId, runId } = req.params
+    const client = new DeerflowClient()
+    await client.cancelRun(threadId, runId)
+    res.json({ success: true, message: 'Run cancelled' })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.use('/api/newapi', newApiRouter)
 app.use('', router)
 app.use('/api', router)
 app.set('trust proxy', 1)
