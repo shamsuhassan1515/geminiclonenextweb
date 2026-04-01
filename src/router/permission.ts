@@ -1,5 +1,5 @@
 import type { Router } from 'vue-router'
-import { useAuthStoreWithout } from '@/store/modules/auth'
+import { useAuthStoreWithout } from '@/store/modules/auth-legacy'
 
 export function setupPageGuard(router: Router) {
   router.beforeEach(async (to, from, next) => {

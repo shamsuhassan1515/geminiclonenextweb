@@ -181,6 +181,12 @@ const getCookie=( time:string )=>{
 }
 export const regCookie= async( req :Request , res:Response , next:NextFunction )=>{
   try{
+      if ( isNotEmptyString( process.env.TURNSTILE_NO_CHECK)) {
+        const now= `${ (Date.now()/1000).toFixed(0)}`;
+        res.status(200);
+        res.send({ok:'ok' ,ctoken: getCookie( now ) })
+        return;
+      }
       const Authorization = req.header('X-Vtoken')
         if ( !Authorization ) throw new Error('Turnstile token 缺失')
 

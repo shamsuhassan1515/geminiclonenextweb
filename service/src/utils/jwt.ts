@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+const JWT_EXPIRY = 7 * 24 * 60 * 60 * 1000 // 7 days
 
 export interface JWTPayload {
   userId: number
@@ -17,8 +18,7 @@ export function signJWT(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
 export function verifyJWT(token: string): JWTPayload | null {
   try {
     return jwt.verify(token, JWT_SECRET) as JWTPayload
-  }
-  catch {
+  } catch {
     return null
   }
 }

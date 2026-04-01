@@ -1,4 +1,5 @@
 # Gemini Clone
+https://localhost:17604/19cb9866 运行程序需要先把lima虚拟机宝塔启动起来 ，newapi和Gemini Clone程序都是运行在宝塔里通过宝塔启动的，不能直接从外面启动
 
 Gemini Clone Web Application - AI Chat Interface
 

@@ -89,7 +89,7 @@ router.post('/config', auth, async (req, res) => {
   }
 })
 
-router.post('/session', async (req, res) => {
+router.all('/session', async (req, res) => {
   try {
     const AUTH_SECRET_KEY = process.env.AUTH_SECRET_KEY
     const hasAuth = isNotEmptyString(AUTH_SECRET_KEY)

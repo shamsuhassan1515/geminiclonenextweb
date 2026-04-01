@@ -38,6 +38,10 @@ const goHome =computed(  () => {
 // }
 //mlog('g', goHome() );
 const chatId= computed(()=>chatStore.active??'1002' );
+
+function openDeepResearch() {
+  urouter.push('/deep-research')
+}
 </script>
 <template>
 <div class="flex-shrink-0 w-[60px] z-[1000]  h-full" v-if="!isMobile" data-tauri-drag-region>
@@ -64,6 +68,18 @@ const chatId= computed(()=>chatStore.active??'1002' );
                     </div>
                  </template>
                 AI Chat
+                </n-tooltip>
+            </a> 
+
+            <a      @click="openDeepResearch()" class="h-12 w-12 cursor-pointer rounded-xl bg-white duration-300 dark:bg-[#34373c] hover:bg-[#bbb] dark:hover:bg-[#555]">
+                <n-tooltip placement="right" trigger="hover">
+                  <template #trigger> 
+                    <div  class="flex h-full justify-center items-center py-1 flex-col">
+                    <SvgIcon icon="ri:search-2-line" class="text-3xl flex-1 text-blue-500"></SvgIcon>
+                     <span class="text-[10px]">深度研究</span>
+                    </div>
+                 </template>
+                深度研究
                 </n-tooltip>
             </a> 
 

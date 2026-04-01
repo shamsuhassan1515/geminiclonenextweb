@@ -5,7 +5,7 @@ import { signJWT, verifyJWT } from '../utils/jwt'
 const router = express.Router()
 const NEWAPI_BASE = process.env.NEWAPI_BASE || 'http://localhost:3001'
 
-// 登录 POST /api/newapi/login
+// 登录
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body
@@ -48,7 +48,7 @@ router.post('/login', async (req, res) => {
   }
 })
 
-// 获取当前用户信息 GET /api/newapi/me
+// 获取当前用户信息
 router.get('/me', async (req, res) => {
   const authHeader = req.headers.authorization
   if (!authHeader?.startsWith('Bearer ')) {
@@ -74,7 +74,7 @@ router.get('/me', async (req, res) => {
   })
 })
 
-// 登出 POST /api/newapi/logout
+// 登出
 router.post('/logout', (req, res) => {
   res.json({ success: true })
 })

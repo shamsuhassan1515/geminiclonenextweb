@@ -7,6 +7,8 @@ import aiModel from '@/views/mj/aiModel.vue'
 import aiSetServer from '@/views/mj/aiSetServer.vue'
 import About from './About.vue'
 import WebSearchSettings from '@/../web search/WebSearchSettings.vue'
+import LoginForm from '@/components/common/LoginForm.vue'
+import UserPanel from '@/components/common/UserPanel.vue'
 import { homeStore, useAuthStore } from '@/store'
 import { SvgIcon } from '@/components/common'
 
@@ -77,13 +79,15 @@ const show = computed({
           </template>
           <WebSearchSettings />
         </NTabPane>
-        <NTabPane name="Config" tab="Config">
+        <NTabPane name="Login" tab="Login">
           <template #tab>
-            <SvgIcon class="text-lg" icon="ri:list-settings-line" />
-            <!-- <span class="ml-2">{{ $t('setting.config') }}</span> -->
-            <span class="ml-2">{{ $t('mjset.about') }}</span>
+            <SvgIcon class="text-lg" icon="ri:user-line" />
+            <span class="ml-2">登陆</span>
           </template>
-          <About />
+          <div class="min-h-[100px]">
+            <LoginForm v-if="!authStore.isLoggedIn" @success="show = false" />
+            <UserPanel v-else @success="show = false" />
+          </div>
         </NTabPane>
 
       </NTabs>

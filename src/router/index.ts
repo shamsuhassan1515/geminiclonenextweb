@@ -6,6 +6,7 @@ import { ChatLayout } from '@/views/chat/layout'
 import mjlayout from '@/views/mj/layout.vue'
 import sunoLayout from '@/views/suno/layout.vue'
 import lumaLayout from '@/views/luma/layout.vue'
+import deepResearchLayout from '@/views/deepresearch/layout.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -134,6 +135,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/wav/wav.vue'),
       },
     ],
+  },
+
+  {
+    path: '/deep-research',
+    name: 'DeepResearchRoot',
+    component: deepResearchLayout,
   },
 
   //调试

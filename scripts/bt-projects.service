@@ -1,0 +1,11 @@
+[Unit]
+Description=BaoTa Panel Projects Auto Start
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/www/server/go_project/vhost/scripts/start_all_projects.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

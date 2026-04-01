@@ -1,16 +1,16 @@
 # ChatGPT Web Midjourney Proxy
 💡**声明**
-- 此项目只发布于 GitHub，基于 MIT 协议，免费且作为开源学习使用。并且不会有任何形式的卖号、付费服务、讨论群、讨论组等行为。谨防受骗。
+https://localhost:17604/19cb9866 运行程序需要先把lima虚拟机宝塔启动起来 ，newapi和Gemini Clone程序都是运行在宝塔里通过宝塔启动的，不能直接从外面启动
 - 本开源是在 [ChenZhaoYu](https://github.com/Chanzhaoyu/chatgpt-web) 基础上做二次开发 ；使用 [midjourney-proxy](https://github.com/novicezk/midjourney-proxy) 提供的midjourney api和 [Suno-API](https://github.com/SunoAI-API/Suno-API)  作为后端而形成的；
 
 
 ![cover](./docs/mj2a1.jpg)
-## 支持功能 
+## 支持功能
 - [x] 支持 suno 单独模块，可歌词调整 曲风调整
 - [x] 原chatgpt web 所有功能
 - [x] chatgpt web 支持自定义api key、base_url
 - [x] midjourney 文生图
-- [x] midjourney 垫图+文生图  
+- [x] midjourney 垫图+文生图
 - [X] midjourney 图变 U1到U4 、 V1到V4、重绘等操作
 - [X] midjourney 支持局部重绘
 - [X] midjourney 支持1.5倍变焦 2倍变焦
@@ -79,10 +79,10 @@
 | SYSTEM_MESSAGE  | 自定义默认角色消息 |  空 | ✅ |  ✅|
 | CUSTOM_VISION_MODELS  | 自定义可视图模型 用`,` 分开 |  空 | ✅ |  ✅|
 
-  
+
 
 ## docker 部署
- 
+
 > - [x] 需 [midjourney-proxy](https://github.com/novicezk/midjourney-proxy)   支持
 > - [x] 需 [Suno-API](https://github.com/SunoAI-API/Suno-API)  支持
 
@@ -96,9 +96,9 @@ docker run --name chatgpt-web-midjourney-proxy  -d -p 6015:3002 \
 -e SUNO_SERVER=https://your-suno-server:8000  \
 -e SUNO_KEY=you-suno-key  ydlhero/chatgpt-web-midjourney-proxy
 ```
-访问 http://ip:6015 
+访问 http://ip:6015
 
-**文件上传**: 
+**文件上传**:
 ```bash
 docker run --name chatgpt-web-midjourney-proxy  -d -p 6015:3002 \
 -e OPENAI_API_KEY=sk-xxxxx \
@@ -136,7 +136,7 @@ docker run -d --name mj6013  -p 6013:8080  \
 ### 自定义服务端api key、base_url：
 ![base_url](./docs/gptbase.jpg)
 
-### GPTS  GTP Store 
+### GPTS  GTP Store
 ![多模态](./docs/gpts.jpg)
 ![多模态](./docs/gpts1.jpg)
 
@@ -205,7 +205,7 @@ docker run --name chatgpt-web-midjourney-proxy  -d -p 6015:3002 \
 -e AUTH_SECRET_KEY=你的英文密码 -e AUTH_SECRET_ERROR_COUNT=3 \
 -e AUTH_SECRET_ERROR_TIME=10 ydlhero/chatgpt-web-midjourney-proxy
 ```
-- 
+-
 ## License
 MIT © [Dooy](./license)
 
@@ -215,7 +215,7 @@ MIT © [Dooy](./license)
 [![Star History Chart](https://api.star-history.com/svg?repos=Dooy/chatgpt-web-midjourney-proxy&type=Date)](https://star-history.com/#Dooy/chatgpt-web-midjourney-proxy&Date)
 
 ## 捐助
-如果我的开源项目对你有帮助，请考虑通过以下任意一种方式赞助: 
+如果我的开源项目对你有帮助，请考虑通过以下任意一种方式赞助:
 <br> `付款备注上您的联系方式`
 <div style="display: flex; flex-wrap: wrap">
     <div style="width:200px">
@@ -223,7 +223,7 @@ MIT © [Dooy](./license)
         <div>微信捐助</div>
     </div>
     <div style="width:200px">
-        <img src="./docs/alipay.jpg"  style="width:200px"> 
+        <img src="./docs/alipay.jpg"  style="width:200px">
         <div>支付宝捐助</div>
     </div>
 </div>

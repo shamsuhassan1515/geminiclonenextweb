@@ -16,7 +16,9 @@ import { Message } from '../chat/components'
 import { useScroll } from '../chat/hooks/useScroll'
 import { useChat } from '../chat/hooks/useChat'
 import { useUsingContext } from '../chat/hooks/useUsingContext'
-import { deepResearchStore } from '@/store/modules/deepResearch'
+import { deepResearchStore, addProgressMessage, updateProgress, setResearchComplete, clearProgressMessages } from '@/store/modules/deepResearch'
+import { startDeerflowResearch } from '@/api/deerflow'
+import ResearchProgress from '@/components/ResearchProgress.vue'
 import { SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import type { gptsType } from '@/api'
@@ -156,6 +158,7 @@ const currentModel = ref<string>('Fast')
 const isImageMode = ref<boolean>(false)
 const isLearningMode = ref<boolean>(false)
 const isDeepResearchEnabled = computed(() => deepResearchStore.enabled)
+const deerflowResearchComplete = ref(false)
 
 const promptStore = usePromptStore()
 const { promptList: promptTemplate } = storeToRefs<any>(promptStore)
@@ -421,9 +424,15 @@ interface DeepResearchEvent {
 }
 
 async function handleDeepResearchConversation(message: string) {
+  // Directly use DeerFlow for Deep Research - no separate plan generation
+  deepResearchStore.isResearching = true
+  deerflowResearchComplete.value = false
+  clearProgressMessages()
+
+  // Add initial chat message
   addChat(uuid.value, {
     dateTime: new Date().toLocaleString(),
-    text: '正在启动深度研究...',
+    text: '🔍 Deep Research (DeerFlow) 正在研究中...',
     loading: true,
     inversion: false,
     error: false,
@@ -432,173 +441,108 @@ async function handleDeepResearchConversation(message: string) {
   })
   scrollToBottom()
 
-  const providerType = localStorage.getItem('web_search_providers')
-  let providerTypeValue = 'serper'
-  let searchApiKey = ''
-  let searchEngineId = ''
-  let searchBaseUrl = ''
-  
-  try {
-    if (providerType) {
-      const providers = JSON.parse(providerType)
-      const activeProvider = providers.find((p: any) => p.isActive)
-      if (activeProvider) {
-        providerTypeValue = activeProvider.providerType
-        searchApiKey = activeProvider.apiKey || ''
-        searchEngineId = activeProvider.config?.search_engine_id || ''
-        searchBaseUrl = activeProvider.config?.searxng_base_url || activeProvider.config?.api_base_url || ''
-      }
-    }
-  } catch (e) {
-    console.error('Failed to parse search providers:', e)
-  }
-
-  const model = currentModel.value.toLowerCase() === 'fast' ? 'gemini-3-flash-preview' :
-                currentModel.value.toLowerCase() === 'thinking' ? 'gemini-2.5-pro-preview-06-17' :
-                'gemini-2.5-pro-preview-06-17'
-
-  const isGeminiOfficial = geminiApiUrl.value.includes('generativelanguage.googleapis.com')
-
-const requestBody = {
-    message,
-    model,
-    geminiApiKey: geminiApiKey.value,
-    geminiApiUrl: geminiApiUrl.value,
-    providerType: providerTypeValue,
-    searchApiKey,
-    searchBaseUrl,
-    useThinking: true,
-    isOfficial: isGeminiOfficial
-  }
-
-  console.log('[DeepResearch] Request body:', JSON.stringify(requestBody))
+  addProgressMessage('status', '正在连接DeerFlow...')
 
   const serviceUrl = import.meta.env.VITE_APP_API_BASE_URL || 'http://localhost:3002'
 
   try {
-    const response = await fetch(`${serviceUrl}/chat-deep-research`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    })
+    for await (const event of startDeerflowResearch({
+      plan: message,  // Pass user's message directly as the research topic
+      deerflowUrl: 'http://localhost:2026'
+    })) {
+      // Handle different event types
+      switch (event.type) {
+        case 'status':
+          addProgressMessage('status', event.message || '')
+          break
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`)
-    }
+        case 'thread_created':
+          addProgressMessage('status', `研究线程已创建`)
+          break
 
-    const reader = response.body?.getReader()
-    if (!reader) {
-      throw new Error('Failed to read response stream')
-    }
+        case 'run_created':
+          addProgressMessage('status', `研究任务已启动`)
+          break
 
-    let buffer = ''
-    let responseText = ''
+        case 'search':
+          addProgressMessage('search', event.query || 'Searching...')
+          break
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+        case 'search_result':
+          addProgressMessage('search_result', event.content || '')
+          break
 
-      const decoder = new TextDecoder()
-      buffer += decoder.decode(value, { stream: true })
+        case 'think':
+          addProgressMessage('think', event.content || '')
+          break
 
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        if (!line.trim()) continue
-        try {
-          const event: DeepResearchEvent = JSON.parse(line)
-          
-          if (event.type === 'error') {
-            throw new Error(event.error)
+        case 'tool_start':
+          if (event.tool === 'web_search' || event.tool === 'web_fetch') {
+            addProgressMessage('search', `搜索: ${JSON.stringify(event.input).slice(0, 100)}`)
+          } else {
+            addProgressMessage('tool_start', `执行工具: ${event.tool}`)
           }
+          break
 
-          let researchPlan = ''
-          let searchProcess = ''
-          let thinkProcess = ''
-          let finalReport = ''
+        case 'tool_end':
+          addProgressMessage('tool_end', event.output || '')
+          break
 
-          if (event.type === 'plan_start' || event.type === 'plan_delta') {
-            researchPlan += event.plan || event.content || ''
-          }
+        case 'progress':
+          updateProgress(event.progress || 0)
+          break
 
-          if (event.type === 'think' || event.type === 'plan_delta') {
-            thinkProcess += event.content || ''
-          }
+        case 'error':
+          addProgressMessage('error', event.error || 'Unknown error')
+          break
 
-          if (event.type === 'search' && event.query) {
-            searchProcess += `\n\n🔍 搜索: ${event.query}\n`
-            if (event.results && event.results.length > 0) {
-              searchProcess += `找到 ${event.results.length} 个结果:\n`
-              event.results.forEach((r, i) => {
-                searchProcess += `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}\n`
-              })
-            }
-          }
+        case 'done':
+          updateProgress(100)
+          setResearchComplete()
+          deerflowResearchComplete.value = true
+          break
+      }
 
-          if (event.type === 'report_start' || event.type === 'report_delta') {
-            finalReport += event.content || ''
-          }
-
-          if (event.type === 'done') {
-            let displayText = '正在整理研究报告...'
-            if (finalReport && finalReport.length > 100) {
-              displayText = finalReport
-            } else if (researchPlan && researchPlan.length > 50) {
-              displayText = '研究进行中，点击下方按钮查看详细过程...'
-            } else {
-              displayText = finalReport || researchPlan || '研究完成'
-            }
-            
-            const deepResearchData = {
-              plan: researchPlan,
-              searchProcess,
-              thinkProcess,
-              finalReport: finalReport
-            }
-            updateChat(uuid.value, dataSources.value.length - 1, {
-              dateTime: new Date().toLocaleString(),
-              text: displayText,
-              inversion: false,
-              error: false,
-              loading: false,
-              conversationOptions: null,
-              requestOptions: { prompt: message, options: null },
-              deepResearchData
-            })
-            scrollToBottomIfAtBottom()
-          }
-        } catch (e) {
-          console.error('Failed to parse event:', e)
-        }
+      // Update progress based on event
+      if (event.progress) {
+        updateProgress(event.progress)
+      } else if (event.step) {
+        updateProgress(Math.min(event.step * 10, 90))
       }
     }
-  } catch (error: any) {
-    const errorMessage = error?.message ?? 'Deep research failed'
 
-    if (error.name === 'AbortError') {
-      updateChatSome(uuid.value, dataSources.value.length - 1, {
-        loading: false,
-      })
-      return
-    }
+    // Research complete
+    addProgressMessage('status', '研究完成！')
+
+    // Update the chat message
+    updateChat(uuid.value, dataSources.value.length - 1, {
+      dateTime: new Date().toLocaleString(),
+      text: '✅ DeerFlow 深度研究完成！请查看上方的研究进度。',
+      inversion: false,
+      error: false,
+      loading: false,
+      conversationOptions: null,
+      requestOptions: { prompt: message, options: null },
+    })
+    scrollToBottom()
+
+  } catch (error: any) {
+    console.error('[DeerFlow] Research error:', error)
+    addProgressMessage('error', error.message)
+    deepResearchStore.isResearching = false
 
     updateChat(uuid.value, dataSources.value.length - 1, {
       dateTime: new Date().toLocaleString(),
-      text: errorMessage,
+      text: `❌ DeerFlow 研究失败: ${error.message}`,
       inversion: false,
       error: true,
       loading: false,
       conversationOptions: null,
       requestOptions: { prompt: message, options: null },
     })
-  }
-  finally {
-    loading.value = false
+  } finally {
+    deepResearchStore.isResearching = false
+    deepResearchStore.isResearching = false
   }
 }
 
@@ -1148,7 +1092,7 @@ function toggleLearningMode(force?: boolean) {
 function toggleDeepResearch() {
   deepResearchStore.enabled = !deepResearchStore.enabled
   if (deepResearchStore.enabled) {
-    ms.success('Deep research enabled')
+    ms.success('Deep research enabled (DeerFlow)')
     // Initialize research state when enabling
     deepResearchStore.plan = null
     deepResearchStore.currentCycle = 0
@@ -1159,6 +1103,9 @@ function toggleDeepResearch() {
     deepResearchStore.plan = null
     deepResearchStore.currentCycle = 0
     deepResearchStore.isResearching = false
+    // Reset DeerFlow state
+    deerflowResearchComplete.value = false
+    clearProgressMessages()
   }
   showToolsMenu.value = false
 }
@@ -1297,16 +1244,15 @@ async function handleFileUpload(event: Event) {
 
 <!-- Chat Messages -->
        <div v-else ref="scrollRef" class="chat-messages">
-         <!-- Deep Research Plan Display -->
-         <div v-if="isDeepResearchEnabled && deepResearchStore.plan" class="deep-research-plan-display">
-           <DeepResearchPlanRenderer 
-             :plan="deepResearchStore.plan"
-             :currentCycle="deepResearchStore.currentCycle"
-             :maxCycles="deepResearchStore.maxCycles"
-             :isResearching="deepResearchStore.isResearching"
-           />
-         </div>
-         <div class="messages-container">
+          <!-- DeerFlow Research Progress -->
+          <div v-if="isDeepResearchEnabled && deepResearchStore.isResearching" class="deerflow-progress-container">
+            <ResearchProgress 
+              :messages="deepResearchStore.progressMessages"
+              :progress="deepResearchStore.researchProgress"
+              :is-complete="deerflowResearchComplete"
+            />
+          </div>
+          <div class="messages-container">
           <template v-for="(item, index) of dataSources" :key="index">
             <!-- Inline Edit Mode -->
             <div v-if="editingIndex === index" class="gemini-inline-edit-container">
@@ -1384,15 +1330,15 @@ async function handleFileUpload(event: Event) {
                  </button>
                </div>
              </div>
-             <div v-if="isDeepResearchEnabled" class="deep-research-mode-badge-container">
-               <div class="deep-research-mode-badge">
-                 <SvgIcon icon="ri:search-line" class="badge-icon" />
-                 <span class="badge-text">Deep research</span>
-                 <button class="badge-close" @click.stop="toggleDeepResearch()">
-                   <SvgIcon icon="ri:close-line" />
-                 </button>
-               </div>
-             </div>
+              <div v-if="isDeepResearchEnabled" class="deep-research-mode-badge-container">
+                <div class="deep-research-mode-badge">
+                  <SvgIcon icon="ri:search-line" class="badge-icon" />
+                  <span class="badge-text">Deep research (DeerFlow)</span>
+                  <button class="badge-close" @click.stop="toggleDeepResearch()">
+                    <SvgIcon icon="ri:close-line" />
+                  </button>
+                </div>
+              </div>
             <input
               ref="inputRef"
               v-model="prompt"
@@ -1431,19 +1377,15 @@ async function handleFileUpload(event: Event) {
                    <button class="tools-menu-item" @click.stop="toggleImageMode(true)">
                      <SvgIcon icon="ri:image-line" />
                      <span>Create image</span>
-                   </button>
-                   <button class="tools-menu-item">
-                     <SvgIcon icon="ri:layout-grid-line" />
-                     <span>Canvas</span>
-                   </button>
-                   <button class="tools-menu-item" @click.stop="toggleDeepResearch">
-                     <SvgIcon :icon="isDeepResearchEnabled ? 'ri:search-line' : 'ri:search-line'" />
-                     <span>Deep research</span>
-                   </button>
-                   <button class="tools-menu-item" @click.stop="toggleLearningMode(true)">
-                     <SvgIcon icon="ri:book-fill" />
-                     <span>Guided learning</span>
-                   </button>
+                    </button>
+                    <button class="tools-menu-item">
+                      <SvgIcon icon="ri:layout-grid-line" />
+                      <span>Canvas</span>
+                    </button>
+                    <button class="tools-menu-item" @click.stop="toggleLearningMode(true)">
+                      <SvgIcon icon="ri:book-fill" />
+                      <span>Guided learning</span>
+                    </button>
                  </div>
                 <div class="tools-menu-footer">
                   <div class="experimental-features">
@@ -1594,6 +1536,24 @@ async function handleFileUpload(event: Event) {
 }
 .badge-close:hover {
   background-color: rgba(25, 103, 210, 0.1);
+}
+
+/* DeerFlow specific styles */
+.deerflow-badge {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.deerflow-progress-container {
+  margin: 16px auto;
+  max-width: 800px;
+  padding: 0 16px;
+}
+
+.deep-research-mode-badge-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 :deep(.rename-modal-input) {

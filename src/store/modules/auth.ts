@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { store } from '@/store/helper'
 
 interface AuthUser {
   id: number
@@ -58,7 +57,3 @@ export const useAuthStore = defineStore('auth', () => {
     loadFromStorage
   }
 })
-
-export function useAuthStoreWithout() {
-  return useAuthStore(store)
-}
