@@ -1,0 +1,24 @@
+Server is running on port 3002
+(node:8426) NOTE: The AWS SDK for JavaScript (v2) has reached end-of-support.
+It will no longer receive updates or releases.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+file:///Users/aydinkaya/%E5%BC%80%E5%8F%91/chatgpt-web-midjourney-proxy/service/build/index.mjs:798
+    console.error(`[NewAPI] Login error for user ${req.body.username}:`, error.message);
+                                                            ^
+
+TypeError: Cannot read properties of undefined (reading 'username')
+    at file:///Users/aydinkaya/%E5%BC%80%E5%8F%91/chatgpt-web-midjourney-proxy/service/build/index.mjs:798:61
+    at Layer.handle [as handle_request] (/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/node_modules/express/lib/router/index.js:175:3)
+    at router (/Users/aydinkaya/开发/chatgpt-web-midjourney-proxy/service/node_modules/express/lib/router/index.js:47:12)
+
+Node.js v20.20.1

@@ -21,14 +21,313 @@ import axios from 'axios';
 import AWS  from 'aws-sdk';
 import { v4 as uuidv4} from 'uuid';
 import { viggleProxyFileDo,viggleProxy, lumaProxy, runwayProxy, ideoProxy, ideoProxyFileDo, klingProxy, pikaProxy, udioProxy, runwaymlProxy, pixverseProxy, sunoProxy, GptImageEdit } from './myfun'
-import { runDeepResearch, type DeepResearchConfig } from './deepresearch/dr_loop'
-import type { SearchProviderType } from './deepresearch/types'
-import { DeerflowClient, transformDeerflowEvent } from './deerflow/client'
-import newApiRouter from './routes/newapi'
-
-
+// import { runDeepResearch, type DeepResearchConfig } from './deepresearch/dr_loop'
+// import type { SearchProviderType } from './deepresearch/types'
+// import { DeerflowClient, transformDeerflowEvent } from './deerflow/client'
 const app = express()
 const router = express.Router()
+
+// NewAPI 路由
+import { signJWT, verifyJWT } from './utils/jwt'
+
+const NEWAPI_BASE = process.env.NEWAPI_BASE || 'http://127.0.0.1:3001'
+
+// 存储 session 的 Map (userId -> session cookie)
+const sessionStore = new Map<number, string>()
+
+// 登录
+router.post('/newapi/login', async (req, res) => {
+  try {
+    const { username, password } = req.body
+
+    const response = await axios.post(`${NEWAPI_BASE}/api/user/login`, {
+      username,
+      password
+    }, {
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (response.data.success) {
+      const user = response.data.data
+
+      // 保存 session cookie
+      const cookies = response.headers['set-cookie']
+      if (cookies) {
+        console.log(`[NewAPI] Received session cookies for user: ${user.username}`)
+        sessionStore.set(user.id, cookies.join('; '))
+      }
+
+      const token = signJWT({
+        userId: user.id,
+        username: user.username,
+        email: user.email
+      })
+
+      res.json({
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email
+        }
+      })
+    } else {
+      console.warn(`[NewAPI] Login failed: ${response.data.message}`)
+      res.json(response.data)
+    }
+  } catch (error: any) {
+    console.error(`[NewAPI] Login error for user ${req.body.username}:`, error.message)
+    if (error.response) {
+      console.error(`[NewAPI] Error response data:`, error.response.data)
+      res.json(error.response.data)
+    } else if (error.request) {
+      console.error(`[NewAPI] No response received from ${NEWAPI_BASE}`)
+      res.json({
+        success: false,
+        message: `无法连接到 NewAPI 服务 (${NEWAPI_BASE})，请检查后端状态`
+      })
+    } else {
+      res.json({
+        success: false,
+        message: `登录请求异常: ${error.message}`
+      })
+    }
+  }
+})
+
+// 获取当前用户信息
+router.get('/newapi/me', async (req, res) => {
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.json({ success: false, message: '未登录' })
+    return
+  }
+
+  const token = authHeader.substring(7)
+  const payload = verifyJWT(token)
+
+  if (!payload) {
+    res.json({ success: false, message: 'Token 无效' })
+    return
+  }
+
+  res.json({
+    success: true,
+    user: {
+      id: payload.userId,
+      username: payload.username,
+      email: payload.email
+    }
+  })
+})
+
+// 获取用户的 API Token
+router.get('/newapi/token', async (req, res) => {
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.json({ success: false, message: '未登录' })
+    return
+  }
+
+  const token = authHeader.substring(7)
+  const payload = verifyJWT(token)
+
+  if (!payload) {
+    res.json({ success: false, message: 'Token 无效' })
+    return
+  }
+
+  // 获取用户的 session cookie
+  const sessionCookie = sessionStore.get(payload.userId)
+  if (!sessionCookie) {
+    res.json({ success: false, message: 'Session 已过期，请重新登录' })
+    return
+  }
+
+  try {
+    // 调用 NewAPI 获取用户的 Token 列表
+    const response = await axios.get(`${NEWAPI_BASE}/api/token`, {
+      headers: {
+        'Cookie': sessionCookie,
+        'Content-Type': 'application/json',
+        'New-Api-User': String(payload.userId)
+      }
+    })
+
+    if (response.data.success) {
+      res.json({
+        success: true,
+        tokens: response.data.data
+      })
+    } else {
+      res.json(response.data)
+    }
+  } catch (error: any) {
+    res.json({
+      success: false,
+      message: error.response?.data?.message || '获取 Token 失败'
+    })
+  }
+})
+
+// 获取用户的第一个可用 API Key
+router.get('/newapi/api-key', async (req, res) => {
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.json({ success: false, message: '未登录' })
+    return
+  }
+
+  const token = authHeader.substring(7)
+  const payload = verifyJWT(token)
+
+  if (!payload) {
+    res.json({ success: false, message: 'Token 无效' })
+    return
+  }
+
+  // 获取用户的 session cookie
+  const sessionCookie = sessionStore.get(payload.userId)
+  if (!sessionCookie) {
+    res.json({ success: false, message: 'Session 已过期，请重新登录' })
+    return
+  }
+
+  try {
+    // 调用 NewAPI 获取用户的 Token 列表
+    const response = await axios.get(`${NEWAPI_BASE}/api/token`, {
+      headers: {
+        'Cookie': sessionCookie,
+        'Content-Type': 'application/json',
+        'New-Api-User': String(payload.userId)
+      }
+    })
+
+    if (response.data.success && response.data.data && response.data.data.length > 0) {
+      // 获取第一个可用的 Token
+      const firstToken = response.data.data[0]
+
+      // 获取 Token 的 Key
+      const keyResponse = await axios.get(`${NEWAPI_BASE}/api/token/${firstToken.id}`, {
+        headers: {
+          'Cookie': sessionCookie,
+          'Content-Type': 'application/json',
+          'New-Api-User': String(payload.userId)
+        }
+      })
+
+      if (keyResponse.data.success) {
+        res.json({
+          success: true,
+          apiKey: keyResponse.data.data.key,
+          tokenName: firstToken.name
+        })
+      } else {
+        res.json({ success: false, message: '获取 API Key 失败' })
+      }
+    } else {
+      res.json({ success: false, message: '没有可用的 API Token，请在 NewAPI 中创建' })
+    }
+  } catch (error: any) {
+    res.json({
+      success: false,
+      message: error.response?.data?.message || '获取 API Key 失败'
+    })
+  }
+})
+
+// 登出
+router.post('/newapi/logout', (req, res) => {
+  res.json({ success: true })
+})
+
+// Gemini API 代理 - 使用用户 Token Key 调用 NewAPI 标准接口
+router.post('/newapi/gemini', async (req, res) => {
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.json({ success: false, message: '未登录' })
+    return
+  }
+
+  const token = authHeader.substring(7)
+  const payload = verifyJWT(token)
+
+  if (!payload) {
+    res.json({ success: false, message: 'Token 无效' })
+    return
+  }
+
+  // 获取用户的 session cookie
+  const sessionCookie = sessionStore.get(payload.userId)
+  if (!sessionCookie) {
+    res.json({ success: false, message: 'Session 已过期，请重新登录' })
+    return
+  }
+
+  try {
+    // 先获取用户的第一个可用 Token Key
+    const tokenListResp = await axios.get(`${NEWAPI_BASE}/api/token`, {
+      headers: {
+        'Cookie': sessionCookie,
+        'Content-Type': 'application/json',
+        'New-Api-User': String(payload.userId)
+      }
+    })
+
+    if (!tokenListResp.data.success || !tokenListResp.data.data || tokenListResp.data.data.length === 0) {
+      res.json({ success: false, message: '没有可用的 API Token，请在 NewAPI 中创建一个 Token' })
+      return
+    }
+
+    // 取第一个 Token 的详情以获得 Key
+    const firstToken = tokenListResp.data.data[0]
+    const keyResp = await axios.get(`${NEWAPI_BASE}/api/token/${firstToken.id}`, {
+      headers: {
+        'Cookie': sessionCookie,
+        'Content-Type': 'application/json',
+        'New-Api-User': String(payload.userId)
+      }
+    })
+
+    if (!keyResp.data.success) {
+      res.json({ success: false, message: '获取 API Key 失败' })
+      return
+    }
+
+    const apiKey = keyResp.data.data.key
+
+    // 用 API Key 调用 NewAPI 的标准 OpenAI 兼容接口
+    const response = await axios.post(`${NEWAPI_BASE}/v1/chat/completions`, req.body, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    res.json(response.data)
+  } catch (error: any) {
+    console.error('[NewAPI] Gemini proxy error:', error.message)
+    if (error.response) {
+      res.json(error.response.data)
+    } else {
+      res.json({
+        success: false,
+        message: error.message || '调用 API 失败'
+      })
+    }
+  }
+})
+
+// API 路由必须在 express.static 之前注册
+// bodyParser 必须在路由之前注册，否则 req.body 为 undefined
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use('', router)
+app.use('/api', router)
 
 app.use(express.static('public' ,{
   // 设置响应头，允许带有查询参数的请求访问静态文件
@@ -37,7 +336,7 @@ app.use(express.static('public' ,{
   }
 } ))
 //app.use(express.json())
-app.use(bodyParser.json({ limit: '10mb' })); //大文件传输
+// bodyParser 已移至路由前，此处保留空行
 
 
 
@@ -103,10 +402,10 @@ router.all('/session', async (req, res) => {
     const notify = process.env.SYS_NOTIFY?? "" ;
     const disableGpt4 = process.env.DISABLE_GPT4?? "" ;
     const isUploadR2 = isNotEmptyString(process.env.R2_DOMAIN);
-    const isWsrv =  process.env.MJ_IMG_WSRV?? "" 
-    const uploadImgSize =  process.env.UPLOAD_IMG_SIZE?? "5" 
-    const gptUrl = process.env.GPT_URL?? ""; 
-    const theme = process.env.SYS_THEME?? "dark"; 
+    const isWsrv =  process.env.MJ_IMG_WSRV?? ""
+    const uploadImgSize =  process.env.UPLOAD_IMG_SIZE?? "5"
+    const gptUrl = process.env.GPT_URL?? "";
+    const theme = process.env.SYS_THEME?? "dark";
     const isCloseMdPreview = process.env.CLOSE_MD_PREVIEW?true:false
     const uploadType= process.env.UPLOAD_TYPE
     const turnstile= process.env.TURNSTILE_SITE
@@ -118,7 +417,7 @@ router.all('/session', async (req, res) => {
     let  isHk= (process.env.OPENAI_API_BASE_URL??"").toLocaleLowerCase().indexOf('-hk')>0
     if(!isHk)  isHk= (process.env.LUMA_SERVER??"").toLocaleLowerCase().indexOf('-hk')>0
     if(!isHk)  isHk= (process.env.VIGGLE_SERVER??"").toLocaleLowerCase().indexOf('-hk')>0
-    
+
 
     const data= { disableGpt4,isWsrv,uploadImgSize,theme,isCloseMdPreview,uploadType,
       notify , baiduId, googleId,isHideServer,isUpload, auth: hasAuth
@@ -330,20 +629,20 @@ app.use('/openapi' ,authV2, turnstileCheck, proxy(API_BASE_URL, {
   //limit: '10mb'
 }));
 
-//代理sunoApi 接口 
+//代理sunoApi 接口
 app.use('/sunoapi' ,authV2,sunoProxy );
 app.use('/suno' ,authV2,sunoProxy );
 
 
 
-//代理luma 接口 
+//代理luma 接口
 app.use('/luma' ,authV2, lumaProxy  );
 app.use('/pro/luma' ,authV2, lumaProxy );
 
 //代理 viggle 文件
 app.use('/viggle/asset',authV2 ,  upload2.single('file'), viggleProxyFileDo );
 app.use('/pro/viggle/asset',authV2 ,  upload2.single('file'), viggleProxyFileDo );
-//代理 viggle  
+//代理 viggle
 app.use('/viggle' ,authV2, viggleProxy);
 app.use('/pro/viggle' ,authV2, viggleProxy);
 
@@ -362,40 +661,40 @@ app.use('/pixverse' ,authV2, pixverseProxy  );
 router.post('/webdav-proxy', authV2, async (req, res) => {
   try {
     const { url, method, username, password, data } = req.body
-    
+
     if (!url || !method || !username || !password) {
       return res.status(400).json({ error: '缺少必要参数' })
     }
-    
+
     const auth = Buffer.from(`${username}:${password}`).toString('base64')
     const headers: any = {
       'Authorization': `Basic ${auth}`,
     }
-    
+
     if (method === 'PUT') {
       headers['Content-Type'] = 'application/json'
     }
-    
+
     const axiosConfig: any = {
       method,
       url,
       headers,
       timeout: 30000,
     }
-    
+
     if (method === 'PUT' && data) {
       axiosConfig.data = data
     }
-    
+
     const response = await axios(axiosConfig)
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       status: response.status,
-      data: response.data 
+      data: response.data
     })
   }
   catch (error: any) {
-    res.status(error.response?.status || 500).json({ 
+    res.status(error.response?.status || 500).json({
       success: false,
       error: error.message,
       status: error.response?.status
@@ -405,6 +704,8 @@ router.post('/webdav-proxy', authV2, async (req, res) => {
 
 
 
+// Deep Research 功能暂时禁用
+/*
 interface DeepResearchRequest {
   message: string
   model: string
@@ -420,22 +721,22 @@ interface DeepResearchRequest {
 
 router.post('/chat-deep-research', authV2, async (req, res) => {
   res.setHeader('Content-type', 'application/octet-stream')
-  
+
   try {
     const body = req.body as DeepResearchRequest
-    
+
     if (!body.message) {
       res.write(JSON.stringify({ error: 'Message is required' }))
       res.end()
       return
     }
-    
+
     if (!body.geminiApiKey) {
       res.write(JSON.stringify({ error: 'Gemini API Key is required' }))
       res.end()
       return
     }
-    
+
     const config: DeepResearchConfig = {
       model: body.model || 'gemini-2.5-pro-preview-06-17',
       geminiApiKey: body.geminiApiKey,
@@ -449,7 +750,7 @@ router.post('/chat-deep-research', authV2, async (req, res) => {
       useThinking: body.useThinking ?? true,
       isOfficial: body.isOfficial ?? (body.geminiApiUrl.includes('generativelanguage.googleapis.com'))
     }
-    
+
     await runDeepResearch(body.message, config, (event) => {
       res.write(JSON.stringify(event) + '\n')
     })
@@ -489,7 +790,7 @@ router.post('/deerflow-research', authV2, async (req, res) => {
 
     // 2. Create run with formatted research message
     res.write(`data: ${JSON.stringify({ type: 'status', message: 'Starting research...' })}\n\n`)
-    
+
     // Format the research message
     const researchMessage = `Please conduct deep research on the following topic:
 
@@ -523,7 +824,7 @@ Instructions:
           case 'think':
             progress = Math.min(progress + 2, 85)
             // Only send meaningful think content
-            if (transformed.content && transformed.content.length > 20 && 
+            if (transformed.content && transformed.content.length > 20 &&
                 !transformed.content.includes('=== Research Cycle') &&
                 !transformed.content.includes('=== Generating Final Report')) {
               res.write(`data: ${JSON.stringify({
@@ -561,8 +862,8 @@ Instructions:
             stepCount++
             // Convert tool calls to search events
             if (transformed.tool === 'web_search' || transformed.tool === 'web_fetch') {
-              const query = transformed.input?.query || 
-                           (typeof transformed.input === 'string' ? transformed.input : 
+              const query = transformed.input?.query ||
+                           (typeof transformed.input === 'string' ? transformed.input :
                            JSON.stringify(transformed.input || {}).slice(0, 100))
               res.write(`data: ${JSON.stringify({
                 type: 'search',
@@ -584,7 +885,7 @@ Instructions:
           case 'tool_end':
             progress = Math.min(progress + 3, 85)
             // Show tool results if meaningful
-            if (transformed.output && transformed.output.length > 10 && 
+            if (transformed.output && transformed.output.length > 10 &&
                 transformed.output !== '[]' && transformed.tool !== 'read_file') {
               res.write(`data: ${JSON.stringify({
                 type: 'search_result',
@@ -664,10 +965,8 @@ router.post('/deerflow-cancel/:threadId/:runId', authV2, async (req, res) => {
     res.status(500).json({ success: false, error: error.message })
   }
 })
+*/
 
-app.use('/api/newapi', newApiRouter)
-app.use('', router)
-app.use('/api', router)
 app.set('trust proxy', 1)
 
 app.listen(3002, () => globalThis.console.log('Server is running on port 3002'))

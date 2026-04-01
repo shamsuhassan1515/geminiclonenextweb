@@ -35,8 +35,10 @@ import {
   usePromptStore,
   useUserStore,
 } from '@/store'
+import { useAuthStore } from '@/store/modules/auth'
 import { t } from '@/locales'
 import { copyToClip } from '@/utils/copy'
+import axios from 'axios'
 
 let controller = new AbortController()
 
@@ -50,6 +52,7 @@ const dialog = useDialog()
 const ms = useMessage()
 const router = useRouter()
 const chatStore = useChatStore()
+const authStore = useAuthStore()
 
 const { isMobile } = useBasicLayout()
 const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex }
@@ -189,9 +192,28 @@ async function onConversation() {
   if (!message || message.trim() === '')
     return
 
+  // 如果没有设置 API Key，尝试从后端获取
   if (!geminiApiKey.value) {
-    ms.error('请提供 Gemini API Key')
-    return
+    if (authStore.isLoggedIn) {
+      try {
+        const response = await axios.get('/api/newapi/api-key', {
+          headers: { Authorization: `Bearer ${authStore.token}` }
+        })
+        if (response.data.success) {
+          geminiApiKey.value = response.data.apiKey
+          ms.success(`已自动加载 API Token: ${response.data.tokenName}`)
+        } else {
+          ms.error(response.data.message || '获取 API Key 失败，请先在 NewAPI 中创建 Token')
+          return
+        }
+      } catch (error: any) {
+        ms.error('获取 API Key 失败，请先登录或在设置中配置 API Key')
+        return
+      }
+    } else {
+      ms.error('请先登录或在设置中配置 Gemini API Key')
+      return
+    }
   }
 
   controller = new AbortController()
@@ -233,7 +255,7 @@ async function onConversation() {
 
     const isGeminiOfficial = geminiApiUrl.value.includes('generativelanguage.googleapis.com')
 
-    const deepResearchSystemPrompt = `You are a highly capable, thoughtful, and precise research agent that conducts deep research on a specific topic. Be thorough and comprehensive in your research. 
+    const deepResearchSystemPrompt = `You are a highly capable, thoughtful, and precise research agent that conducts deep research on a specific topic. Be thorough and comprehensive in your research.
 
 Conduct multi-step research by:
 1. Breaking down the topic into key aspects to investigate
@@ -246,7 +268,49 @@ Be curious, analytical, and provide detailed, factual information with citations
     let url: string
     let requestBody: any
 
-    if (isGeminiOfficial) {
+    // 构建消息数组
+    const messages: any[] = []
+
+    if (isDeepResearchEnabled.value) {
+      messages.push({
+        role: 'system',
+        content: deepResearchSystemPrompt
+      })
+    }
+
+    dataSources.value.forEach((item) => {
+      if (item.inversion) {
+        messages.push({
+          role: 'user',
+          content: item.text
+        })
+      } else if (!item.loading) {
+        messages.push({
+          role: 'assistant',
+          content: item.text
+        })
+      }
+    })
+
+    // 如果用户已登录，使用后端代理
+    if (authStore.isLoggedIn) {
+      url = '/api/newapi/gemini'
+      requestBody = {
+        model: model,
+        messages: messages,
+        temperature: 0.7,
+        top_p: 0.95,
+        max_tokens: 8192,
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'googleSearch'
+            }
+          }
+        ],
+      }
+    } else if (isGeminiOfficial) {
       url = `${geminiApiUrl.value}/models/${model}:generateContent?key=${geminiApiKey.value}`
 
       const conversationHistory: any[] = []
@@ -284,29 +348,6 @@ Be curious, analytical, and provide detailed, factual information with citations
     } else {
       url = `${geminiApiUrl.value}/v1/chat/completions`
 
-      const messages: any[] = []
-      
-      if (isDeepResearchEnabled.value) {
-        messages.push({
-          role: 'system',
-          content: deepResearchSystemPrompt
-        })
-      }
-      
-      dataSources.value.forEach((item) => {
-        if (item.inversion) {
-          messages.push({
-            role: 'user',
-            content: item.text
-          })
-        } else if (!item.loading) {
-          messages.push({
-            role: 'assistant',
-            content: item.text
-          })
-        }
-      })
-
       requestBody = {
         model: model,
         messages: messages,
@@ -328,7 +369,11 @@ Be curious, analytical, and provide detailed, factual information with citations
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': isGeminiOfficial ? '' : `Bearer ${geminiApiKey.value}`,
+        ...(authStore.isLoggedIn && {
+          Authorization: `Bearer ${authStore.token}`,
+          'New-Api-User': authStore.user?.username || ''
+        }),
+        ...(!authStore.isLoggedIn && isGeminiOfficial ? {} : { Authorization: `Bearer ${geminiApiKey.value}` }),
       },
       body: JSON.stringify(requestBody),
       signal: controller.signal,
@@ -550,9 +595,28 @@ async function onRegenerate(index: number) {
   if (loading.value)
     return
 
+  // 如果没有设置 API Key，尝试从后端获取
   if (!geminiApiKey.value) {
-    ms.error('请提供 Gemini API Key')
-    return
+    if (authStore.isLoggedIn) {
+      try {
+        const response = await axios.get('/api/newapi/api-key', {
+          headers: { Authorization: `Bearer ${authStore.token}` }
+        })
+        if (response.data.success) {
+          geminiApiKey.value = response.data.apiKey
+          ms.success(`已自动加载 API Token: ${response.data.tokenName}`)
+        } else {
+          ms.error(response.data.message || '获取 API Key 失败，请先在 NewAPI 中创建 Token')
+          return
+        }
+      } catch (error: any) {
+        ms.error('获取 API Key 失败，请先登录或在设置中配置 API Key')
+        return
+      }
+    } else {
+      ms.error('请先登录或在设置中配置 Gemini API Key')
+      return
+    }
   }
 
   controller = new AbortController()
@@ -584,7 +648,34 @@ async function onRegenerate(index: number) {
     let url: string
     let requestBody: any
 
-    if (isGeminiOfficial) {
+    // 构建消息数组
+    const messages: any[] = []
+    for (let i = 0; i < index; i++) {
+      const item = dataSources.value[i]
+      if (item.inversion) {
+        messages.push({
+          role: 'user',
+          content: item.text
+        })
+      } else if (!item.loading) {
+        messages.push({
+          role: 'assistant',
+          content: item.text
+        })
+      }
+    }
+
+    // 如果用户已登录，使用后端代理
+    if (authStore.isLoggedIn) {
+      url = '/api/newapi/gemini'
+      requestBody = {
+        model: model,
+        messages: messages,
+        temperature: 0.7,
+        top_p: 0.95,
+        max_tokens: 8192,
+      }
+    } else if (isGeminiOfficial) {
       url = `${geminiApiUrl.value}/models/${model}:generateContent?key=${geminiApiKey.value}`
 
       const conversationHistory: any[] = []
@@ -614,22 +705,6 @@ async function onRegenerate(index: number) {
     } else {
       url = `${geminiApiUrl.value}/v1/chat/completions`
 
-      const messages: any[] = []
-      for (let i = 0; i < index; i++) {
-        const item = dataSources.value[i]
-        if (item.inversion) {
-          messages.push({
-            role: 'user',
-            content: item.text
-          })
-        } else if (!item.loading) {
-          messages.push({
-            role: 'assistant',
-            content: item.text
-          })
-        }
-      }
-
       requestBody = {
         model: model,
         messages: messages,
@@ -643,7 +718,8 @@ async function onRegenerate(index: number) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': isGeminiOfficial ? '' : `Bearer ${geminiApiKey.value}`,
+        ...(authStore.isLoggedIn && { Authorization: `Bearer ${authStore.token}` }),
+        ...(!authStore.isLoggedIn && isGeminiOfficial ? {} : { Authorization: `Bearer ${geminiApiKey.value}` }),
       },
       body: JSON.stringify(requestBody),
       signal: controller.signal,
@@ -1246,7 +1322,7 @@ async function handleFileUpload(event: Event) {
        <div v-else ref="scrollRef" class="chat-messages">
           <!-- DeerFlow Research Progress -->
           <div v-if="isDeepResearchEnabled && deepResearchStore.isResearching" class="deerflow-progress-container">
-            <ResearchProgress 
+            <ResearchProgress
               :messages="deepResearchStore.progressMessages"
               :progress="deepResearchStore.researchProgress"
               :is-complete="deerflowResearchComplete"

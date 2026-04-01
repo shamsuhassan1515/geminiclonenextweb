@@ -1,6 +1,10 @@
 # NewAPI 登录集成设计文档
 
 ## 1. 概述
+在lima虚拟机宝塔（https://localhost:17604/19cb9866 用户名xinynet密码261603）运行的以下项目：
+- chatgpt-web (http://localhost:1002)
+- NewAPI (http://localhost:3001)  用户名xinynet 密码gaswan2005
+- service (http://localhost:3002)
 
 在 Gemini 页面 (http://localhost:1002/#/gemini) 集成 NewAPI (http://localhost:3001) 的登录功能，实现用户登录后可以自动使用 NewAPI 中设置的 API Token，无需每次手动输入密钥。
 
