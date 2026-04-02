@@ -161,7 +161,7 @@ router.get('/newapi/token', async (req, res) => {
     if (response.data.success) {
       res.json({
         success: true,
-        tokens: response.data.data
+        tokens: response.data.data?.items || []
       })
     } else {
       res.json(response.data)
@@ -207,12 +207,13 @@ router.get('/newapi/api-key', async (req, res) => {
       }
     })
 
-    if (response.data.success && response.data.data && response.data.data.length > 0) {
+    const items = response.data.data?.items || [];
+    if (response.data.success && items.length > 0) {
       // 获取第一个可用的 Token
-      const firstToken = response.data.data[0]
+      const firstToken = items[0]
 
       // 获取 Token 的 Key
-      const keyResponse = await axios.get(`${NEWAPI_BASE}/api/token/${firstToken.id}`, {
+      const keyResponse = await axios.post(`${NEWAPI_BASE}/api/token/${firstToken.id}/key`, {}, {
         headers: {
           'Cookie': sessionCookie,
           'Content-Type': 'application/json',
@@ -278,14 +279,15 @@ router.post('/newapi/gemini', async (req, res) => {
       }
     })
 
-    if (!tokenListResp.data.success || !tokenListResp.data.data || tokenListResp.data.data.length === 0) {
+    const items = tokenListResp.data.data?.items || [];
+    if (!tokenListResp.data.success || items.length === 0) {
       res.json({ success: false, message: '没有可用的 API Token，请在 NewAPI 中创建一个 Token' })
       return
     }
 
     // 取第一个 Token 的详情以获得 Key
-    const firstToken = tokenListResp.data.data[0]
-    const keyResp = await axios.get(`${NEWAPI_BASE}/api/token/${firstToken.id}`, {
+    const firstToken = items[0]
+    const keyResp = await axios.post(`${NEWAPI_BASE}/api/token/${firstToken.id}/key`, {}, {
       headers: {
         'Cookie': sessionCookie,
         'Content-Type': 'application/json',

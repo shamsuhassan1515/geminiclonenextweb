@@ -201,7 +201,6 @@ async function onConversation() {
         })
         if (response.data.success) {
           geminiApiKey.value = response.data.apiKey
-          ms.success(`已自动加载 API Token: ${response.data.tokenName}`)
         } else {
           ms.error(response.data.message || '获取 API Key 失败，请先在 NewAPI 中创建 Token')
           return
@@ -369,11 +368,9 @@ Be curious, analytical, and provide detailed, factual information with citations
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(authStore.isLoggedIn && {
-          Authorization: `Bearer ${authStore.token}`,
-          'New-Api-User': authStore.user?.username || ''
-        }),
-        ...(!authStore.isLoggedIn && isGeminiOfficial ? {} : { Authorization: `Bearer ${geminiApiKey.value}` }),
+        ...(authStore.isLoggedIn
+          ? { Authorization: `Bearer ${authStore.token}` }
+          : (isGeminiOfficial ? {} : { Authorization: `Bearer ${geminiApiKey.value}` }))
       },
       body: JSON.stringify(requestBody),
       signal: controller.signal,
@@ -388,7 +385,7 @@ Be curious, analytical, and provide detailed, factual information with citations
     console.log('API Response:', data)
 
     let responseText = ''
-    if (isGeminiOfficial) {
+    if (!authStore.isLoggedIn && isGeminiOfficial) {
       if (data.candidates && data.candidates.length > 0) {
         const candidate = data.candidates[0]
         if (candidate.content && candidate.content.parts) {
@@ -604,7 +601,6 @@ async function onRegenerate(index: number) {
         })
         if (response.data.success) {
           geminiApiKey.value = response.data.apiKey
-          ms.success(`已自动加载 API Token: ${response.data.tokenName}`)
         } else {
           ms.error(response.data.message || '获取 API Key 失败，请先在 NewAPI 中创建 Token')
           return
@@ -718,8 +714,9 @@ async function onRegenerate(index: number) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(authStore.isLoggedIn && { Authorization: `Bearer ${authStore.token}` }),
-        ...(!authStore.isLoggedIn && isGeminiOfficial ? {} : { Authorization: `Bearer ${geminiApiKey.value}` }),
+        ...(authStore.isLoggedIn
+          ? { Authorization: `Bearer ${authStore.token}` }
+          : (isGeminiOfficial ? {} : { Authorization: `Bearer ${geminiApiKey.value}` }))
       },
       body: JSON.stringify(requestBody),
       signal: controller.signal,
@@ -733,7 +730,7 @@ async function onRegenerate(index: number) {
     const data = await response.json()
 
     let responseText = ''
-    if (isGeminiOfficial) {
+    if (!authStore.isLoggedIn && isGeminiOfficial) {
       if (data.candidates && data.candidates.length > 0) {
         const candidate = data.candidates[0]
         if (candidate.content && candidate.content.parts) {
